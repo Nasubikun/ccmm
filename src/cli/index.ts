@@ -12,7 +12,8 @@ import chalk from "chalk";
 import { sync } from "./sync.js";
 import { lock } from "./lock.js";
 import { unlock } from "./unlock.js";
-import type { SyncOptions, LockOptions, CliOptions } from "../core/types/index.js";
+import { edit } from "./edit.js";
+import type { SyncOptions, LockOptions, CliOptions, EditOptions } from "../core/types/index.js";
 
 // パッケージ情報
 const packageInfo = {
@@ -151,14 +152,34 @@ program
     }
   });
 
-// edit コマンド (将来の実装用)
+// edit コマンド
 program
   .command("edit")
   .description("プリセットファイルを編集する")
   .argument("<preset>", "編集するプリセット名")
+  .option("--owner <owner>", "リポジトリオーナーを指定")
   .option("--repo <repo>", "リポジトリ名を指定")
-  .action((preset: string, options: any) => {
-    showInfo(`edit コマンドは未実装です (preset: ${preset})`);
+  .option("-v, --verbose", "詳細ログを出力")
+  .option("-y, --yes", "確認プロンプトをスキップ")
+  .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
+  .action(async (preset: string, options: EditOptions) => {
+    try {
+      if (options.verbose) {
+        showInfo(`プリセット ${preset} の編集を開始しています...`);
+      }
+      
+      const result = await edit(preset, options);
+      
+      if (result.success) {
+        showSuccess(`プリセット ${preset} の編集が完了しました`);
+      } else {
+        showError("編集処理に失敗しました", result.error);
+        process.exit(1);
+      }
+    } catch (error) {
+      showError("予期しないエラーが発生しました", error instanceof Error ? error : new Error(String(error)));
+      process.exit(1);
+    }
   });
 
 // extract コマンド (将来の実装用)
