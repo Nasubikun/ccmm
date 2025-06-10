@@ -14,8 +14,9 @@ import { lock } from "./lock.js";
 import { unlock } from "./unlock.js";
 import { edit } from "./edit.js";
 import { extract } from "./extract.js";
+import { push } from "./push.js";
 import { init } from "./init.js";
-import type { SyncOptions, LockOptions, CliOptions, EditOptions, ExtractOptions } from "../core/types/index.js";
+import type { SyncOptions, LockOptions, CliOptions, EditOptions, ExtractOptions, PushOptions } from "../core/types/index.js";
 
 // パッケージ情報
 const packageInfo = {
@@ -231,13 +232,37 @@ program
     }
   });
 
-// push コマンド (将来の実装用)
+// push コマンド
 program
   .command("push")
   .description("プリセットの変更をリモートリポジトリにプッシュする")
   .argument("<preset>", "プッシュするプリセット名")
-  .action((preset: string) => {
-    showInfo(`push コマンドは未実装です (preset: ${preset})`);
+  .option("--owner <owner>", "リポジトリオーナーを指定")
+  .option("--repo <repo>", "リポジトリ名を指定")
+  .option("--title <title>", "プルリクエストのタイトル")
+  .option("--body <body>", "プルリクエストの本文")
+  .option("--branch <branch>", "ブランチ名を指定")
+  .option("-v, --verbose", "詳細ログを出力")
+  .option("-y, --yes", "確認プロンプトをスキップ")
+  .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
+  .action(async (preset: string, options: PushOptions & EditOptions) => {
+    try {
+      if (options.verbose) {
+        showInfo(`プリセット ${preset} の変更をプッシュしています...`);
+      }
+      
+      const result = await push(preset, options);
+      
+      if (result.success) {
+        showSuccess(result.data);
+      } else {
+        showError("プッシュ処理に失敗しました", result.error);
+        process.exit(1);
+      }
+    } catch (error) {
+      showError("予期しないエラーが発生しました", error instanceof Error ? error : new Error(String(error)));
+      process.exit(1);
+    }
   });
 
 // グローバルエラーハンドリング
