@@ -14,18 +14,14 @@ export function distance(a: Point, b: Point): number {
 
 - As much as possible, avoid the use of classes and use function-based implementations.
 - Use src/lib/result.ts to handle results.
-
-## Linter/Formatter Setup
-- This project uses Biome for linting and formatting
-- Run `npm run lint` to check code quality
-- Run `npm run lint:fix` to auto-fix issues  
-- Run `npm run format` to format code
-- Configuration is in biome.json
 </coding-rules>
 
 <testing>
 Unit test must be written after each implement using vitest.
 The purpose is ensure the code works properly.
+
+You must run `npm run check` before complete your task.
+This command that runs all quality checks: tests, type checking, linting, and formatting.
 </testing>
 
 <workfiles>

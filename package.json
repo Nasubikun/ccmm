@@ -12,8 +12,10 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
+    "typecheck": "tsc --noEmit",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "check": "npm run test:run && npm run typecheck && npm run lint && npm run format"
   },
   "keywords": [
     "claude",
