@@ -13,7 +13,8 @@ import { sync } from "./sync.js";
 import { lock } from "./lock.js";
 import { unlock } from "./unlock.js";
 import { edit } from "./edit.js";
-import type { SyncOptions, LockOptions, CliOptions, EditOptions } from "../core/types/index.js";
+import { extract } from "./extract.js";
+import type { SyncOptions, LockOptions, CliOptions, EditOptions, ExtractOptions } from "../core/types/index.js";
 
 // パッケージ情報
 const packageInfo = {
@@ -182,12 +183,32 @@ program
     }
   });
 
-// extract コマンド (将来の実装用)
+// extract コマンド
 program
   .command("extract")
   .description("CLAUDE.mdからプリセットへ変更を抽出する")
-  .action(() => {
-    showInfo("extract コマンドは未実装です");
+  .option("--preset <preset>", "対象プリセットファイル")
+  .option("-v, --verbose", "詳細ログを出力")
+  .option("-y, --yes", "確認プロンプトをスキップ")
+  .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
+  .action(async (options: ExtractOptions) => {
+    try {
+      if (options.verbose) {
+        showInfo("CLAUDE.mdから変更を抽出しています...");
+      }
+      
+      const result = await extract(options);
+      
+      if (result.success) {
+        showSuccess("変更の抽出が完了しました");
+      } else {
+        showError("抽出処理に失敗しました", result.error);
+        process.exit(1);
+      }
+    } catch (error) {
+      showError("予期しないエラーが発生しました", error instanceof Error ? error : new Error(String(error)));
+      process.exit(1);
+    }
   });
 
 // push コマンド (将来の実装用)

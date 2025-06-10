@@ -20,7 +20,7 @@ export function distance(a: Point, b: Point): number {
 Unit test must be written after each implement using vitest.
 The purpose is ensure the code works properly.
 
-You must run `npm run check` before complete your task.
+You must run `npm run check` before completing your task.
 This command that runs all quality checks: tests, type checking, linting, and formatting.
 </testing>
 
