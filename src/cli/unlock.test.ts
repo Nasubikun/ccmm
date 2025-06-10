@@ -18,6 +18,7 @@ import type { ClaudeMdContent, ProjectPaths, PresetPointer } from '../core/types
 vi.mock('../core/fs.js');
 vi.mock('../git/index.js');
 vi.mock('./sync.js');
+vi.mock('./init.js');
 
 describe('unlock機能', () => {
   beforeEach(() => {
@@ -333,23 +334,28 @@ describe('unlock機能', () => {
     const mockReadFile = vi.fn();
     const mockParseCLAUDEMd = vi.fn();
     const mockFetchPresets = vi.fn();
+    const mockFetchLocalPresets = vi.fn();
     const mockGenerateMerged = vi.fn();
     const mockUpdateClaudeMd = vi.fn();
+    const mockLoadConfig = vi.fn();
 
     beforeEach(async () => {
       const git = await import('../git/index.js');
       const sync = await import('./sync.js');
       const fs = await import('../core/fs.js');
+      const init = await import('./init.js');
       
       vi.mocked(git.isGitRepository).mockImplementation(mockIsGitRepository);
       vi.mocked(git.getOriginUrl).mockImplementation(mockGetOriginUrl);
       vi.mocked(sync.generateProjectPaths).mockImplementation(mockGenerateProjectPaths);
       vi.mocked(sync.parseCLAUDEMd).mockImplementation(mockParseCLAUDEMd);
       vi.mocked(sync.fetchPresets).mockImplementation(mockFetchPresets);
+      vi.mocked(sync.fetchLocalPresets).mockImplementation(mockFetchLocalPresets);
       vi.mocked(sync.generateMerged).mockImplementation(mockGenerateMerged);
       vi.mocked(sync.updateClaudeMd).mockImplementation(mockUpdateClaudeMd);
       vi.mocked(fs.fileExists).mockImplementation(mockFileExists);
       vi.mocked(fs.readFile).mockImplementation(mockReadFile);
+      vi.mocked(init.loadConfig).mockImplementation(mockLoadConfig);
     });
 
     it('ロックされた状態から正常にアンロック処理を実行する', async () => {
@@ -387,7 +393,15 @@ describe('unlock機能', () => {
       });
       
       // Mock regenerateHeadMerged dependencies
+      mockLoadConfig.mockReturnValue({ 
+        success: true, 
+        data: { 
+          defaultPresetRepo: 'file:///some/path',
+          defaultPresets: ['react.md'] 
+        } 
+      });
       mockFetchPresets.mockResolvedValue({ success: true, data: [] });
+      mockFetchLocalPresets.mockResolvedValue({ success: true, data: [] });
       mockGenerateMerged.mockResolvedValue({ success: true, data: {} });
       mockUpdateClaudeMd.mockResolvedValue({ success: true });
 

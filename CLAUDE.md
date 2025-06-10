@@ -21,7 +21,7 @@ Unit test must be written after each implement using vitest.
 The purpose is ensure the code works properly.
 
 You must run `npm run check` before completing your task.
-This command that runs all quality checks: tests, type checking, linting, and formatting.
+This command that runs all quality checks: formatting, linting, type checking, and tests.
 </testing>
 
 <workfiles>

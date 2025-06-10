@@ -220,7 +220,7 @@ describe('sync機能', () => {
       expect(result.success).toBe(true);
       expect(mockWriteFile).toHaveBeenCalledWith(
         mergedPresetPath,
-        'React preset content\n\nTypeScript preset content'
+        '@/path/to/react.md\n@/path/to/typescript.md'
       );
       
       if (result.success) {
@@ -230,7 +230,7 @@ describe('sync機能', () => {
       }
     });
 
-    it('内容が空のプリセットを除外する', async () => {
+    it('ローカルパスがあるプリセットの@import行を生成する', async () => {
       const presets: PresetInfo[] = [
         {
           pointer: { host: 'github.com', owner: 'myorg', repo: 'CLAUDE-md', file: 'react.md', commit: 'HEAD' },
@@ -251,7 +251,7 @@ describe('sync機能', () => {
       expect(result.success).toBe(true);
       expect(mockWriteFile).toHaveBeenCalledWith(
         '/path/to/merged.md',
-        'React preset content'
+        '@/path/to/react.md\n@/path/to/empty.md'
       );
     });
 

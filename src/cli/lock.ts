@@ -169,11 +169,55 @@ export async function getCurrentPresets(
       return Ok([]);
     }
     
-    // merged-preset ファイルが存在する場合、そこからプリセット情報を読み取り
-    // 現在の実装では簡略化して空のリストを返す
-    // 実際の実装では merged-preset ファイルを解析してプリセット情報を復元する必要がある
+    // merged-preset ファイルからプリセット情報を読み取り
+    const mergedPresetPath = content.importInfo.path;
     
-    return Ok([]);
+    // merged-preset ファイルが存在することを確認
+    const mergedExists = await fileExists(mergedPresetPath);
+    if (!mergedExists) {
+      return Err(new Error(`Merged preset file not found: ${mergedPresetPath}`));
+    }
+    
+    // merged-preset ファイルの内容を読み取り
+    const mergedContent = await readFile(mergedPresetPath);
+    if (!mergedContent.success) {
+      return Err(mergedContent.error);
+    }
+    
+    // @import行をプリセット情報に変換
+    const importLines = mergedContent.data.split('\n').filter(line => line.startsWith('@'));
+    const presetInfos: PresetInfo[] = [];
+    
+    for (const line of importLines) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine.startsWith('@')) continue;
+      
+      const presetPath = trimmedLine.substring(1); // @を除去
+      
+      // プリセットファイルが存在するか確認
+      const presetExists = await fileExists(presetPath);
+      if (presetExists) {
+        const presetContent = await readFile(presetPath);
+        if (presetContent.success) {
+          // 簡略化されたPresetPointer（実際のプリセット操作に必要な最小限の情報）
+          const pointer: PresetPointer = {
+            host: "localhost", // file://の場合
+            owner: "local",
+            repo: "presets", 
+            file: presetPath.split('/').pop() || '',
+            commit: content.importInfo.pointer.commit
+          };
+          
+          presetInfos.push({
+            pointer,
+            localPath: presetPath,
+            content: presetContent.data
+          });
+        }
+      }
+    }
+    
+    return Ok(presetInfos);
   } catch (error) {
     return Err(error instanceof Error ? error : new Error(String(error)));
   }

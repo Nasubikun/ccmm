@@ -38,7 +38,7 @@ export function parseCLAUDEMd(content: string): Result<ClaudeMdContent, Error> {
     let importInfo: PresetImport | null = null;
     let freeContentLines = lines;
     
-    // import行の形式: @~/.ccmm/projects/<slug>/merged-preset-<SHA>.md
+    // import行の形式: @<path>/merged-preset-<SHA>.md (絶対パスも対応)
     const importPattern = /^@(.+\/merged-preset-([^/]+)\.md)$/;
     const match = lastLine?.match(importPattern);
     
@@ -115,6 +115,73 @@ export function generateProjectPaths(projectRoot: string, originUrl: string, com
 }
 
 /**
+ * ローカルファイルシステムからプリセットファイルを取得する（file://用）
+ * 
+ * @param pointers - 取得するプリセットポインタのリスト
+ * @param homePresetDir - プリセット保存先のベースディレクトリ
+ * @returns 取得結果
+ */
+export async function fetchLocalPresets(pointers: PresetPointer[], homePresetDir: string): Promise<Result<PresetInfo[], Error>> {
+  try {
+    if (pointers.length === 0) {
+      return Ok([]);
+    }
+    
+    const presetInfos: PresetInfo[] = [];
+    
+    for (const pointer of pointers) {
+      // ローカルパスを生成
+      const localPath = join(homePresetDir, pointer.host, pointer.owner, pointer.repo, pointer.file);
+      
+      // 親ディレクトリを作成
+      const dir = dirname(localPath);
+      const ensureDirResult = await ensureDir(dir);
+      if (!ensureDirResult.success) {
+        return Err(ensureDirResult.error);
+      }
+      
+      // configからソースパスを取得
+      const { loadConfig } = await import("./init.js");
+      const configResult = loadConfig();
+      
+      if (!configResult.success || !configResult.data.defaultPresetRepo) {
+        return Err(new Error("Config not found for local preset source"));
+      }
+      
+      const sourcePath = configResult.data.defaultPresetRepo.replace("file://", "");
+      const sourceFile = join(sourcePath, pointer.file);
+      
+      // ファイルが存在することを確認
+      const sourceExists = await fileExists(sourceFile);
+      if (!sourceExists) {
+        return Err(new Error(`Source preset file not found: ${sourceFile}`));
+      }
+      
+      // ファイルをコピー
+      const readResult = await readFile(sourceFile);
+      if (!readResult.success) {
+        return Err(new Error(`Failed to read preset file: ${readResult.error.message}`));
+      }
+      
+      const writeResult = await writeFile(localPath, readResult.data);
+      if (!writeResult.success) {
+        return Err(new Error(`Failed to write preset file: ${writeResult.error.message}`));
+      }
+      
+      presetInfos.push({
+        pointer,
+        localPath,
+        content: readResult.data
+      });
+    }
+    
+    return Ok(presetInfos);
+  } catch (error) {
+    return Err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+/**
  * 指定されたプリセットポインタリストからプリセットファイルを取得する
  * 
  * @param pointers - 取得するプリセットポインタのリスト
@@ -173,6 +240,7 @@ export async function fetchPresets(pointers: PresetPointer[], homePresetDir: str
 
 /**
  * 取得したプリセット情報からmerged-preset-<SHA>.mdファイルを生成する
+ * @import行のリストとして生成し、lock機能との整合性を保つ
  * 
  * @param presets - プリセット情報のリスト
  * @param mergedPresetPath - 生成するマージファイルのパス
@@ -181,13 +249,14 @@ export async function fetchPresets(pointers: PresetPointer[], homePresetDir: str
  */
 export async function generateMerged(presets: PresetInfo[], mergedPresetPath: string, commit: string): Promise<Result<MergedPreset, Error>> {
   try {
-    // プリセットの内容を統合
-    const mergedContent = presets
-      .filter(preset => preset.content) // 内容があるもののみ
-      .map(preset => preset.content)
-      .join('\n\n');
+    // プリセットの@import行を生成（lock機能との整合性のため）
+    const importLines = presets
+      .filter(preset => preset.localPath) // ローカルパスがあるもののみ
+      .map(preset => `@${preset.localPath}`);
     
-    // マージファイルを書き込み
+    // @import行のリストをファイルに書き込み
+    const mergedContent = importLines.join('\n');
+    
     const writeResult = await writeFile(mergedPresetPath, mergedContent);
     if (!writeResult.success) {
       return Err(writeResult.error);
@@ -318,11 +387,57 @@ export async function sync(options: SyncOptions = {}): Promise<Result<void, Erro
       }
     }
     
-    // 6. プリセットを決定（今回は例として空のリスト - 後で拡張）
+    // 6. プリセットを決定（config.jsonからデフォルトプリセットを読み取り）
     const presetPointers: PresetPointer[] = [];
     
+    // config.jsonからデフォルトプリセットを読み取り
+    try {
+      const { loadConfig } = await import("./init.js");
+      const configResult = loadConfig();
+      
+      if (configResult.success) {
+        const config = configResult.data;
+        
+        // デフォルトプリセットリポジトリとプリセットが設定されている場合
+        if (config.defaultPresetRepo && config.defaultPresets) {
+          const repoUrl = config.defaultPresetRepo;
+          
+          // file:// プロトコルの場合の特別処理
+          if (repoUrl.startsWith("file://")) {
+            const localPath = repoUrl.replace("file://", "");
+            
+            for (const presetFile of config.defaultPresets) {
+              presetPointers.push({
+                host: "localhost",
+                owner: "local",
+                repo: "presets",
+                file: presetFile,
+                commit: commit
+              });
+            }
+          } else {
+            // 通常のGitリポジトリの場合（将来の拡張用）
+            // TODO: GitリポジトリURLのパース実装
+          }
+        }
+      }
+    } catch (error) {
+      // config読み取りエラーは警告のみ（syncは続行）
+      if (options.verbose) {
+        console.warn("Warning: Could not load preset config:", error);
+      }
+    }
+    
     // 7. プリセットを取得
-    const fetchResult = await fetchPresets(presetPointers, paths.homePresetDir);
+    let fetchResult: Result<PresetInfo[], Error>;
+    
+    // file://プロトコルの場合は直接ファイルコピー
+    if (presetPointers.length > 0 && presetPointers[0]?.host === "localhost") {
+      fetchResult = await fetchLocalPresets(presetPointers, paths.homePresetDir);
+    } else {
+      fetchResult = await fetchPresets(presetPointers, paths.homePresetDir);
+    }
+    
     if (!fetchResult.success) {
       return Err(fetchResult.error);
     }

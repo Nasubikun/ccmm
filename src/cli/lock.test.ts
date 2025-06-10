@@ -351,10 +351,15 @@ describe('lock機能', () => {
       
       // Mock getCurrentPresets to return empty (current implementation behavior)
       mockFileExists.mockResolvedValue(true);
-      mockReadFile.mockResolvedValue({ 
-        success: true, 
-        data: 'Free content\n\n@~/.ccmm/projects/test-slug/merged-preset-HEAD.md' 
-      });
+      mockReadFile
+        .mockResolvedValueOnce({ 
+          success: true, 
+          data: 'Free content\n\n@~/.ccmm/projects/test-slug/merged-preset-HEAD.md' 
+        })
+        .mockResolvedValueOnce({ 
+          success: true, 
+          data: '' // Empty merged preset file - no @import lines
+        });
       mockParseCLAUDEMd.mockReturnValue({ 
         success: true, 
         data: { 
@@ -408,10 +413,15 @@ describe('lock機能', () => {
       
       // Mock getCurrentPresets to return empty (current implementation behavior)
       mockFileExists.mockResolvedValue(true);
-      mockReadFile.mockResolvedValue({ 
-        success: true, 
-        data: 'Free content\n\n@~/.ccmm/projects/test-slug/merged-preset-HEAD.md' 
-      });
+      mockReadFile
+        .mockResolvedValueOnce({ 
+          success: true, 
+          data: 'Free content\n\n@~/.ccmm/projects/test-slug/merged-preset-HEAD.md' 
+        })
+        .mockResolvedValueOnce({ 
+          success: true, 
+          data: '' // Empty merged preset file - no @import lines
+        });
       mockParseCLAUDEMd.mockReturnValue({ 
         success: true, 
         data: { 

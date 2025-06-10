@@ -13,6 +13,8 @@ import inquirer from "inquirer";
 
 interface InitConfig {
   defaultPresetRepositories?: string[];
+  defaultPresetRepo?: string;
+  defaultPresets?: string[];
 }
 
 interface InitResult {

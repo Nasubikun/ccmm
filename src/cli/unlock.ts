@@ -11,6 +11,7 @@ import {
   parseCLAUDEMd, 
   generateProjectPaths, 
   fetchPresets, 
+  fetchLocalPresets,
   generateMerged, 
   updateClaudeMd 
 } from "./sync.js";
@@ -61,7 +62,14 @@ export async function detectLockState(
     
     // import行のコミット情報をチェック
     const commit = content.importInfo.pointer.commit;
-    const isLocked = commit !== "HEAD";
+    
+    // ロック状態の判定：
+    // 1. merged-preset-<具体的なSHA>.md の場合はロック済み（短縮SHAも含む）
+    // 2. merged-preset-HEAD.md の場合でも、vendor/が存在する場合はロック済み
+    const importPath = content.importInfo.path;
+    const isLockedBySha = commit !== "HEAD" && commit.length >= 7; // 7文字以上のSHA（短縮も含む）
+    const isLockedByVendor = importPath.includes("/vendor/");
+    const isLocked = isLockedBySha || isLockedByVendor;
     
     return Ok({ 
       isLocked, 
@@ -84,19 +92,36 @@ export async function restorePresetConfiguration(
   lockedSha?: string
 ): Promise<Result<PresetPointer[], Error>> {
   try {
-    // 現在の実装では、プリセットの設定情報を保存していないため
-    // 簡略化してデフォルトのプリセット設定を返す
-    // 実際の実装では、ロック前の設定を復元するためのメタデータを保存する必要がある
+    // プリセット設定をconfig.jsonから復元
+    try {
+      const { loadConfig } = await import("./init.js");
+      const configResult = loadConfig();
+      
+      if (configResult.success && configResult.data.defaultPresetRepo && configResult.data.defaultPresets) {
+        const config = configResult.data;
+        const presetPointers: PresetPointer[] = [];
+        
+        // file:// プロトコルの場合の処理
+        if (config.defaultPresetRepo?.startsWith("file://") && config.defaultPresets) {
+          for (const presetFile of config.defaultPresets) {
+            presetPointers.push({
+              host: "localhost",
+              owner: "local", 
+              repo: "presets",
+              file: presetFile,
+              commit: "HEAD" // unlockでHEADに戻す
+            });
+          }
+        }
+        
+        return Ok(presetPointers);
+      }
+    } catch (error) {
+      // config読み取りエラーは続行（デフォルト設定を使用）
+    }
     
-    // TODO: 将来的には以下の仕組みを実装する：
-    // 1. ロック時にプリセット設定のメタデータを保存
-    // 2. アンロック時にそのメタデータを読み取って復元
-    // 3. または、デフォルトのプリセット設定ファイルから読み取り
-    
-    // 現在は空のプリセットリストを返す（デモ用）
-    const defaultPresets: PresetPointer[] = [];
-    
-    return Ok(defaultPresets);
+    // configが無い場合は空のプリセットリストを返す
+    return Ok([]);
   } catch (error) {
     return Err(error instanceof Error ? error : new Error(String(error)));
   }
@@ -121,7 +146,14 @@ export async function regenerateHeadMerged(
     };
     
     // 1. プリセットを取得（最新版）
-    const fetchResult = await fetchPresets(presetPointers, paths.homePresetDir);
+    let fetchResult: Result<PresetInfo[], Error>;
+    
+    if (presetPointers.length > 0 && presetPointers[0]?.host === "localhost") {
+      fetchResult = await fetchLocalPresets(presetPointers, paths.homePresetDir);
+    } else {
+      fetchResult = await fetchPresets(presetPointers, paths.homePresetDir);
+    }
+    
     if (!fetchResult.success) {
       return Err(fetchResult.error);
     }

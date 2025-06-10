@@ -77,7 +77,7 @@ program
           showInfo("CLAUDE.mdが更新されました");
         }
       } else {
-        showError("同期処理に失敗しました", result.error);
+        showError(`同期処理に失敗しました: ${result.error?.message || 'Unknown error'}`, result.error);
         process.exit(1);
       }
     } catch (error) {
@@ -135,7 +135,7 @@ program
           showInfo("CLAUDE.mdがベンダー版に更新されました");
         }
       } else {
-        showError("ロック処理に失敗しました", result.error);
+        showError(`ロック処理に失敗しました: ${result.error?.message || 'Unknown error'}`, result.error);
         process.exit(1);
       }
     } catch (error) {
@@ -165,7 +165,7 @@ program
           showInfo("CLAUDE.mdがHEAD版に更新されました");
         }
       } else {
-        showError("アンロック処理に失敗しました", result.error);
+        showError(`アンロック処理に失敗しました: ${result.error?.message || 'Unknown error'}`, result.error);
         process.exit(1);
       }
     } catch (error) {
