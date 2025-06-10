@@ -1,0 +1,26 @@
+<coding-rules>
+- At the beginning of each file, before the function, describe the specification with a comment in Japanese.
+
+Example output
+```ts
+/**
+ * 2点間のユークリッド距離を計算する
+**/
+type Point = { x: number; y: number; };
+export function distance(a: Point, b: Point): number {
+  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+}
+```
+
+- As much as possible, avoid the use of classes and use function-based implementations.
+- Use src/lib/result.ts to handle results.
+
+## Linter/Formatter Setup
+- This project uses Biome for linting and formatting
+- Run `npm run lint` to check code quality
+- Run `npm run lint:fix` to auto-fix issues  
+- Run `npm run format` to format code
+- Configuration is in biome.json
+</coding-rules>
+
+Your works should be documented in ./works directory.
