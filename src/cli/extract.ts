@@ -103,7 +103,7 @@ export function parseDiffOutput(diffOutput: string): Result<DiffChange[], Error>
       // ハンクヘッダー: @@ -0,0 +1,2 @@
       const hunkMatch = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
       if (hunkMatch) {
-        currentLineNumber = parseInt(hunkMatch[1], 10);
+        currentLineNumber = parseInt(hunkMatch[1]!, 10);
         continue;
       }
       

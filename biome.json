@@ -9,6 +9,12 @@
       "recommended": true,
       "correctness": {
         "noUnusedVariables": "error"
+      },
+      "style": {
+        "noNonNullAssertion": "error"
+      },
+      "suspicious": {
+        "noExplicitAny": "error"
       }
     }
   },

@@ -91,9 +91,9 @@ describe('lock機能', () => {
 
       expect(result.success).toBe(true);
       expect(mockEnsureDir).toHaveBeenCalledWith(vendorInfo.path);
-      expect(mockFileExists).toHaveBeenCalledWith(presets[0].localPath);
+      expect(mockFileExists).toHaveBeenCalledWith(presets[0]!.localPath);
       expect(mockCopyFile).toHaveBeenCalledWith(
-        presets[0].localPath,
+        presets[0]!.localPath,
         join(vendorInfo.path, 'github.com_myorg_CLAUDE-md_react.md')
       );
       

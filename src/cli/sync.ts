@@ -41,9 +41,13 @@ export function parseCLAUDEMd(content: string): Result<ClaudeMdContent, Error> {
     const importPattern = /^@(.+\/merged-preset-([^/]+)\.md)$/;
     const match = lastLine?.match(importPattern);
     
-    if (match) {
+    if (match && lastLine) {
       importLine = lastLine;
       const [, path, sha] = match;
+      
+      if (!path || !sha) {
+        return Err(new Error("Invalid import line format"));
+      }
       
       // import行からPresetPointerを解析（簡略化版 - 実際のプリセット情報は別途取得）
       const pointer: PresetPointer = {
@@ -55,9 +59,9 @@ export function parseCLAUDEMd(content: string): Result<ClaudeMdContent, Error> {
       };
       
       importInfo = {
-        line: importLine,
+        line: importLine!,
         pointer,
-        path
+        path: path
       };
       
       // 自由記述部分を抽出（最後の行とその前の空行を除外）
@@ -145,8 +149,8 @@ export async function fetchPresets(pointers: PresetPointer[], homePresetDir: str
     // PresetInfo形式で結果を返す
     const presetInfos: PresetInfo[] = [];
     for (let i = 0; i < pointers.length; i++) {
-      const pointer = pointers[i];
-      const localPath = localPaths[i];
+      const pointer = pointers[i]!;
+      const localPath = localPaths[i]!;
       
       // ファイルの内容を読み取り
       const contentResult = await readFile(localPath);

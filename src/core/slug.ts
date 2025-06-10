@@ -14,9 +14,9 @@ function parseGitUrl(originUrl: string): { host: string; owner: string; repo: st
   const httpsMatch = normalizedUrl.match(/^https?:\/\/([^\/]+)\/([^\/]+)\/([^\/]+)$/);
   if (httpsMatch) {
     return {
-      host: httpsMatch[1],
-      owner: httpsMatch[2],
-      repo: httpsMatch[3],
+      host: httpsMatch[1]!,
+      owner: httpsMatch[2]!,
+      repo: httpsMatch[3]!,
     };
   }
   
@@ -24,9 +24,9 @@ function parseGitUrl(originUrl: string): { host: string; owner: string; repo: st
   const sshMatch = normalizedUrl.match(/^git@([^:]+):([^\/]+)\/([^\/]+)$/);
   if (sshMatch) {
     return {
-      host: sshMatch[1],
-      owner: sshMatch[2],
-      repo: sshMatch[3],
+      host: sshMatch[1]!,
+      owner: sshMatch[2]!,
+      repo: sshMatch[3]!,
     };
   }
   
@@ -34,9 +34,9 @@ function parseGitUrl(originUrl: string): { host: string; owner: string; repo: st
   const sshUrlMatch = normalizedUrl.match(/^ssh:\/\/git@([^\/]+)\/([^\/]+)\/([^\/]+)$/);
   if (sshUrlMatch) {
     return {
-      host: sshUrlMatch[1],
-      owner: sshUrlMatch[2],
-      repo: sshUrlMatch[3],
+      host: sshUrlMatch[1]!,
+      owner: sshUrlMatch[2]!,
+      repo: sshUrlMatch[3]!,
     };
   }
   

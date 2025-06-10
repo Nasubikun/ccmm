@@ -162,8 +162,8 @@ describe('sync機能', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data).toHaveLength(1);
-        expect(result.data[0].content).toBe('preset content');
-        expect(result.data[0].pointer).toEqual(pointers[0]);
+        expect(result.data[0]!.content).toBe('preset content');
+        expect(result.data[0]!.pointer).toEqual(pointers[0]);
       }
     });
 

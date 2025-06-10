@@ -154,7 +154,7 @@ export async function batchFetch(
   
   try {
     const results = await Promise.all(
-      pointers.map((pointer, index) => shallowFetch(pointer, localPaths[index]))
+      pointers.map((pointer, index) => shallowFetch(pointer, localPaths[index]!))
     );
     
     // エラーが含まれているかチェック

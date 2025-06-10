@@ -85,8 +85,8 @@ index abc123..def456 100644
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data).toHaveLength(1);
-        expect(result.data[0].filePath).toBe("CLAUDE.md");
-        expect(result.data[0].content).toBe("- New rule");
+        expect(result.data[0]!.filePath).toBe("CLAUDE.md");
+        expect(result.data[0]!.content).toBe("- New rule");
       }
     });
 
@@ -105,7 +105,7 @@ index abc123..def456 100644
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data).toHaveLength(1);
-        expect(result.data[0].content).toBe("New content");
+        expect(result.data[0]!.content).toBe("New content");
       }
     });
 

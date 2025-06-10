@@ -109,8 +109,8 @@ export async function generateVendorMerged(
     
     // 各プリセットのベンダーパスを相対パスで生成
     for (let i = 0; i < presets.length; i++) {
-      const preset = presets[i];
-      const vendorFileName = vendorInfo.files[i];
+      const preset = presets[i]!;
+      const vendorFileName = vendorInfo.files[i]!;
       const vendorFilePath = join(vendorInfo.path, vendorFileName);
       
       // merged-preset-<sha>.md からの相対パスを計算

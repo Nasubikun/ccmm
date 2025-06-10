@@ -20,6 +20,12 @@ import {
 } from "./index.js";
 import type { PresetPointer } from "../core/types/index.js";
 
+// テスト用のmock型定義
+type MockExecResult = {
+  stdout: string;
+  stderr: string;
+};
+
 // Mockの設定
 vi.mock("simple-git");
 vi.mock("node:child_process", () => ({
@@ -126,13 +132,13 @@ describe("git module", () => {
         if (typeof callback === "function") {
           if (callCount === 1) {
             // gh --version の応答
-            callback(null, { stdout: "gh version 2.0.0", stderr: "" } as any);
+            callback(null, { stdout: "gh version 2.0.0", stderr: "" } satisfies MockExecResult);
           } else {
             // gh api の応答
-            callback(null, { stdout: "File content", stderr: "" } as any);
+            callback(null, { stdout: "File content", stderr: "" } satisfies MockExecResult);
           }
         }
-        return {} as any;
+        return {} as ReturnType<typeof import('node:child_process').exec>;
       });
 
       const result = await shallowFetch(mockPointer, localPath);
@@ -155,16 +161,16 @@ describe("git module", () => {
         if (typeof callback === "function") {
           if (callCount === 1) {
             // gh --version の応答
-            callback(null, { stdout: "gh version 2.0.0", stderr: "" } as any);
+            callback(null, { stdout: "gh version 2.0.0", stderr: "" } satisfies MockExecResult);
           } else if (callCount === 2) {
             // gh api の失敗
-            callback(null, { stdout: "", stderr: "HTTP 404: Not Found" } as any);
+            callback(null, { stdout: "", stderr: "HTTP 404: Not Found" } satisfies MockExecResult);
           } else {
             // curl の成功
-            callback(null, { stdout: "Success with curl", stderr: "" } as any);
+            callback(null, { stdout: "Success with curl", stderr: "" } satisfies MockExecResult);
           }
         }
-        return {} as any;
+        return {} as ReturnType<typeof import('node:child_process').exec>;
       });
 
       const result = await shallowFetch(mockPointer, localPath);
@@ -187,14 +193,14 @@ describe("git module", () => {
         if (typeof callback === "function") {
           if (callCount === 1) {
             // gh --version失敗
-            callback(new Error("gh not found"), { stdout: "", stderr: "" } as any);
+            callback(new Error("gh not found"), { stdout: "", stderr: "" } satisfies MockExecResult);
           } else {
             // curlで認証ヘッダー確認
             expect(command).toContain('Authorization: Bearer test-token');
-            callback(null, { stdout: "Success", stderr: "" } as any);
+            callback(null, { stdout: "Success", stderr: "" } satisfies MockExecResult);
           }
         }
-        return {} as any;
+        return {} as ReturnType<typeof import('node:child_process').exec>;
       });
 
       const result = await shallowFetch(mockPointer, localPath);
@@ -214,9 +220,9 @@ describe("git module", () => {
       
       mockExec.mockImplementation((command, callback) => {
         if (typeof callback === "function") {
-          callback(null, { stdout: "", stderr: "404 Not Found" } as any);
+          callback(null, { stdout: "", stderr: "404 Not Found" } satisfies MockExecResult);
         }
-        return {} as any;
+        return {} as ReturnType<typeof import('node:child_process').exec>;
       });
 
       const result = await shallowFetch(mockPointer, localPath);
@@ -256,9 +262,9 @@ describe("git module", () => {
 
       mockExec.mockImplementation((command, callback) => {
         if (typeof callback === "function") {
-          callback(null, { stdout: "Success", stderr: "" } as any);
+          callback(null, { stdout: "Success", stderr: "" } satisfies MockExecResult);
         }
-        return {} as any;
+        return {} as ReturnType<typeof import('node:child_process').exec>;
       });
 
       const result = await batchFetch(mockPointers, localPaths);
@@ -266,8 +272,8 @@ describe("git module", () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data).toHaveLength(2);
-        expect(result.data[0].success).toBe(true);
-        expect(result.data[1].success).toBe(true);
+        expect(result.data[0]!.success).toBe(true);
+        expect(result.data[1]!.success).toBe(true);
       }
     });
 
@@ -294,13 +300,13 @@ describe("git module", () => {
         if (typeof callback === "function") {
           if (callCount === 1) {
             // 最初の呼び出しは成功
-            callback(null, { stdout: "Success", stderr: "" } as any);
+            callback(null, { stdout: "Success", stderr: "" } satisfies MockExecResult);
           } else {
             // 2回目の呼び出しは失敗
-            callback(null, { stdout: "", stderr: "Error" } as any);
+            callback(null, { stdout: "", stderr: "Error" } satisfies MockExecResult);
           }
         }
-        return {} as any;
+        return {} as ReturnType<typeof import('node:child_process').exec>;
       });
 
       const result = await batchFetch(mockPointers, localPaths);
@@ -332,14 +338,14 @@ describe("git module", () => {
         if (typeof callback === "function") {
           if (callCount === 1) {
             // gh --version の応答
-            callback(null, { stdout: "gh version 2.0.0", stderr: "" } as any);
+            callback(null, { stdout: "gh version 2.0.0", stderr: "" } satisfies MockExecResult);
           } else {
             // PR作成の応答
             const prUrl = "https://github.com/testowner/testrepo/pull/123";
-            callback(null, { stdout: prUrl, stderr: "Opening in browser..." } as any);
+            callback(null, { stdout: prUrl, stderr: "Opening in browser..." } satisfies MockExecResult);
           }
         }
-        return {} as any;
+        return {} as ReturnType<typeof import('node:child_process').exec>;
       });
 
       const result = await openPr(mockPrInfo);
@@ -354,9 +360,9 @@ describe("git module", () => {
     it("GitHub CLIが利用できない場合エラーを返す", async () => {
       mockExec.mockImplementation((command, callback) => {
         if (typeof callback === "function") {
-          callback(new Error("gh: command not found"), { stdout: "", stderr: "" } as any);
+          callback(new Error("gh: command not found"), { stdout: "", stderr: "" } satisfies MockExecResult);
         }
-        return {} as any;
+        return {} as ReturnType<typeof import('node:child_process').exec>;
       });
 
       const result = await openPr(mockPrInfo);
@@ -374,23 +380,23 @@ describe("git module", () => {
         if (typeof callback === "function") {
           if (callCount === 1) {
             // gh --version
-            callback(null, { stdout: "gh version 2.0.0", stderr: "" } as any);
+            callback(null, { stdout: "gh version 2.0.0", stderr: "" } satisfies MockExecResult);
           } else if (callCount === 2) {
             // PR作成の失敗（権限なし）
-            callback(null, { stdout: "", stderr: "permission denied" } as any);
+            callback(null, { stdout: "", stderr: "permission denied" } satisfies MockExecResult);
           } else if (callCount === 3) {
             // フォーク作成
-            callback(null, { stdout: "Forked", stderr: "" } as any);
+            callback(null, { stdout: "Forked", stderr: "" } satisfies MockExecResult);
           } else if (callCount === 4) {
             // ユーザー名取得
-            callback(null, { stdout: "testuser", stderr: "" } as any);
+            callback(null, { stdout: "testuser", stderr: "" } satisfies MockExecResult);
           } else {
             // フォーク先からPR作成
             const prUrl = "https://github.com/testowner/testrepo/pull/124";
-            callback(null, { stdout: prUrl, stderr: "Opening in browser..." } as any);
+            callback(null, { stdout: prUrl, stderr: "Opening in browser..." } satisfies MockExecResult);
           }
         }
-        return {} as any;
+        return {} as ReturnType<typeof import('node:child_process').exec>;
       });
 
       const result = await openPr(mockPrInfo);
@@ -501,10 +507,10 @@ describe("git module", () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data).toHaveLength(3);
-        expect(result.data[0].name).toBe("main");
-        expect(result.data[0].current).toBe(true);
-        expect(result.data[0].commit).toBe("abc123");
-        expect(result.data[1].current).toBe(false);
+        expect(result.data[0]!.name).toBe("main");
+        expect(result.data[0]!.current).toBe(true);
+        expect(result.data[0]!.commit).toBe("abc123");
+        expect(result.data[1]!.current).toBe(false);
       }
     });
 
