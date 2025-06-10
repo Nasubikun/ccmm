@@ -1,0 +1,33 @@
+{
+  "name": "ccmm",
+  "version": "1.0.0",
+  "description": "CLAUDE.md Manager - Manage CLAUDE.md presets across projects",
+  "type": "module",
+  "bin": {
+    "ccmm": "./dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli/index.ts",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["claude", "preset", "manager", "cli"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^14.0.0",
+    "inquirer": "^12.6.3",
+    "simple-git": "^3.28.0"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^9.0.8",
+    "@types/node": "^24.0.0",
+    "biome": "^0.3.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

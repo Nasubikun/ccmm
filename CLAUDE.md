@@ -23,4 +23,10 @@ export function distance(a: Point, b: Point): number {
 - Configuration is in biome.json
 </coding-rules>
 
-Your works should be documented in ./works directory.
+<workfiles>
+At the end of each task, your works must be documented in ./works directory.
+The work files name should follow the format below to clarify the order of files.
+`<index>-<description>.md`
+e.g.: 0-implementation-intent.md
+If you want to know the reason of implements, you can check past work files.
+<workfiles>
