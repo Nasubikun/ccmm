@@ -23,6 +23,11 @@ export function distance(a: Point, b: Point): number {
 - Configuration is in biome.json
 </coding-rules>
 
+<testing>
+Unit test must be written after each implement using vitest.
+The purpose is ensure the code works properly.
+</testing>
+
 <workfiles>
 At the end of each task, your works must be documented in ./works directory.
 The work files name should follow the format below to clarify the order of files.
@@ -30,3 +35,5 @@ The work files name should follow the format below to clarify the order of files
 e.g.: 0-implementation-intent.md
 If you want to know the reason of implements, you can check past work files.
 <workfiles>
+
+@/Users/jo/.ccmm/projects/3c6ac3e255e73ab6/merged-preset-HEAD.md
