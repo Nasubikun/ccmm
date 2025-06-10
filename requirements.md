@@ -15,28 +15,30 @@ ccmm  ―  TypeScript 実装ガイド (2025-06-10)
 ======================================================
 1. プロジェクト側の約束
 ======================================================
-repo-root/CLAUDE.md は次の 3 ブロックで構成する。
+各プロジェクトの repo-root/CLAUDE.md は次の 3 ブロックで構成する：
 
-① 自由記述 (好きに書く)
-② 空行 1
-③ 自動エリア（ccmm が管理）★絶対に 1 行
+① 自由記述 (プロジェクト固有の指示)
+② 空行 1行
+③ 自動管理行（ccmm が管理）★必ず最後の1行
    @~/.ccmm/projects/<slug>/merged-preset-<SHA>.md
 
-* <slug> = host__owner__repo-git-<originSHA> をハッシュ化
-* <SHA>   = preset を固定する Git commit (HEAD なら "HEAD")
+* <slug> = プロジェクトのGit origin URLから生成される一意識別子
+* <SHA>  = プリセットのコミットハッシュ (HEAD または具体的なSHA)
+* 注意: ③の行は ccmm sync/lock/unlock コマンドのみが変更する
 
 ======================================================
 2. $HOME 側のレイアウト
 ======================================================
-$HOME/.ccmm/
-├─ presets/                       ← CLAUDE-md 実体 (read-only cache)
+$HOME/.ccmm/                      ← ccmm init で作成される
+├─ config.json                    ← グローバル設定（デフォルトリポジトリ等）
+├─ presets/                       ← プリセットファイルのキャッシュ
 │   └─ github.com/myorg/CLAUDE-md/
 │         ├─ react.md
 │         └─ typescript.md
-└─ projects/
-    └─ <slug>/
-        ├─ merged-preset-<SHA>.md ← only @imports (machine-generated)
-        └─ vendor/<SHA>/…         ← lock 時に実体コピー (git 無視)
+└─ projects/                      ← プロジェクト固有のファイル
+    └─ <slug>/                    ← 各プロジェクトごとのディレクトリ
+        ├─ merged-preset-<SHA>.md ← import行のみ記載（自動生成）
+        └─ vendor/<SHA>/…         ← lock時のプリセットコピー
 
 ======================================================
 3. TypeScript プロジェクト構成例
@@ -84,8 +86,22 @@ git/index.ts
 6. CLI コマンド実装例
 ======================================================
 
-cli/sync.ts
+cli/init.ts   (グローバル初期化)
 ───────────
+目的: ccmm自体の初回セットアップ（プロジェクトごとではない）
+1. ~/.ccmm/ ディレクトリ構造を作成
+   - ~/.ccmm/presets/    (プリセットファイルのキャッシュ)
+   - ~/.ccmm/projects/   (プロジェクト固有ファイル)
+2. ~/.ccmm/config.json を作成
+   - デフォルトのプリセットリポジトリ設定（オプション）
+3. 実行タイミング
+   - 各ユーザーが ccmm を使い始める時に1回だけ実行
+   - プロジェクトディレクトリとは無関係
+
+cli/sync.ts   (プロジェクトへのプリセット適用)
+───────────
+目的: 現在のプロジェクトのCLAUDE.mdにプリセットを適用
+前提: ccmm init 実行済み、現在のディレクトリがGitリポジトリ
 1. 解析
    - ルート CLAUDE.md を読み、現在の import 行を解析
    - HEAD or lock SHA を決定
@@ -155,9 +171,12 @@ cli/push.ts
 ======================================================
 10. 動作テスト例
 ======================================================
-# clone 済みリポで
-$ ccmm init
-$ ccmm sync                  # import 行追加
+# 初回のみ（グローバル初期化）
+$ ccmm init                  # ~/.ccmm/ を作成、デフォルトリポジトリ設定
+
+# clone 済みリポで（プロジェクトごと）
+$ cd my-project              # Gitリポジトリに移動
+$ ccmm sync                  # CLAUDE.md に import 行追加
 $ echo "- Use eslint" >> CLAUDE.md
 $ git add CLAUDE.md
 $ ccmm extract               # 行を react.md へ昇格

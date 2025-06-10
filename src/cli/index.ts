@@ -14,6 +14,7 @@ import { lock } from "./lock.js";
 import { unlock } from "./unlock.js";
 import { edit } from "./edit.js";
 import { extract } from "./extract.js";
+import { init } from "./init.js";
 import type { SyncOptions, LockOptions, CliOptions, EditOptions, ExtractOptions } from "../core/types/index.js";
 
 // パッケージ情報
@@ -84,12 +85,31 @@ program
     }
   });
 
-// init コマンド (将来の実装用)
+// init コマンド
 program
   .command("init")
-  .description("新しいプロジェクトでccmmを初期化する")
-  .action(() => {
-    showInfo("init コマンドは未実装です");
+  .description("ccmmをグローバルに初期化する")
+  .option("-v, --verbose", "詳細ログを出力")
+  .option("-y, --yes", "確認プロンプトをスキップ")
+  .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
+  .action(async (options: CliOptions) => {
+    try {
+      if (options.verbose) {
+        showInfo("ccmmの初期化を開始しています...");
+      }
+      
+      const result = await init(options);
+      
+      if (result.success) {
+        showSuccess(result.message || "ccmmの初期化が完了しました");
+      } else {
+        showError("初期化処理に失敗しました", result.error);
+        process.exit(1);
+      }
+    } catch (error) {
+      showError("予期しないエラーが発生しました", error instanceof Error ? error : new Error(String(error)));
+      process.exit(1);
+    }
   });
 
 // lock コマンド

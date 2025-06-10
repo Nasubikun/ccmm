@@ -11,6 +11,7 @@ import { readFile, writeFile, ensureDir, expandTilde, fileExists } from "../core
 import { makeSlug } from "../core/slug.js";
 import { getOriginUrl, isGitRepository, shallowFetch, batchFetch } from "../git/index.js";
 import { Result, Ok, Err } from "../lib/result.js";
+import { isInitialized } from "./init.js";
 import type { 
   ClaudeMdContent, 
   PresetImport, 
@@ -276,6 +277,11 @@ export async function updateClaudeMd(
 export async function sync(options: SyncOptions = {}): Promise<Result<void, Error>> {
   try {
     const projectRoot = process.cwd();
+    
+    // 0. ccmmが初期化されているか確認
+    if (!isInitialized()) {
+      return Err(new Error("ccmmが初期化されていません。先に 'ccmm init' を実行してください"));
+    }
     
     // 1. Gitリポジトリの確認
     const isGitResult = await isGitRepository(projectRoot);
