@@ -183,7 +183,9 @@ describe('sync機能', () => {
       const result = await fetchPresets(pointers, '/home/.ccmm/presets');
       
       expect(result.success).toBe(false);
-      expect(result.error.message).toBe('mkdir failed');
+      if (!result.success) {
+        expect(result.error.message).toBe('mkdir failed');
+      }
     });
   });
 
@@ -261,7 +263,9 @@ describe('sync機能', () => {
       const result = await generateMerged(presets, '/path/to/merged.md', 'HEAD');
       
       expect(result.success).toBe(false);
-      expect(result.error.message).toBe('write failed');
+      if (!result.success) {
+        expect(result.error.message).toBe('write failed');
+      }
     });
   });
 

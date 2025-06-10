@@ -409,7 +409,9 @@ describe("git module", () => {
       const result = await isGitRepository(tempDir);
       
       expect(result.success).toBe(true);
-      expect(result.data).toBe(true);
+      if (result.success) {
+        expect(result.data).toBe(true);
+      }
       expect(simpleGit).toHaveBeenCalledWith(tempDir);
     });
 
@@ -419,7 +421,9 @@ describe("git module", () => {
       const result = await isGitRepository(tempDir);
       
       expect(result.success).toBe(true);
-      expect(result.data).toBe(false);
+      if (result.success) {
+        expect(result.data).toBe(false);
+      }
     });
   });
 
