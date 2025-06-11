@@ -40,10 +40,6 @@ export const fold =
   (result: Result<T, E>): R =>
     result.success ? onSuccess(result.data) : onError(result.error);
 
-// 複数のResultを合成（すべて成功の場合のみ成功）
-// 注：現在未使用のため、必要に応じて実装
-// export const combine = ...
-
 // 安全な関数実行
 export const tryCatch = <T>(fn: () => T): Result<T, Error> => {
   try {
