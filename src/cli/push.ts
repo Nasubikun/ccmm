@@ -11,6 +11,7 @@ import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import { simpleGit, type SimpleGit } from "simple-git";
 import { readFile, writeFile, fileExists } from "../core/fs.js";
+import { buildPresetPath, parsePresetPath, hasContentDiff } from "../core/preset.js";
 import { Result, Ok, Err } from "../lib/result.js";
 import { 
   shallowFetch, 
@@ -26,82 +27,8 @@ import type {
 
 const execPromise = promisify(exec);
 
-/**
- * プリセットファイルのパスから PresetPointer を構築する
- * 
- * @param presetPath - プリセットファイルのローカルパス
- * @returns PresetPointer または エラー
- */
-export function parsePresetPath(presetPath: string): Result<PresetPointer, Error> {
-  try {
-    // ~/.ccmm/presets/github.com/owner/repo/file.md
-    const homeDir = homedir();
-    const presetsDir = join(homeDir, ".ccmm", "presets");
-    
-    if (!presetPath.startsWith(presetsDir)) {
-      return Err(new Error("プリセットファイルのパスが正しくありません"));
-    }
-    
-    // プリセットディレクトリからの相対パスを取得
-    const relativePath = presetPath.substring(presetsDir.length + 1);
-    const parts = relativePath.split("/");
-    
-    if (parts.length < 4) {
-      return Err(new Error("プリセットファイルのパス形式が無効です"));
-    }
-    
-    const [host, owner, repo, ...fileParts] = parts;
-    const file = fileParts.join("/");
-    
-    if (!host || !owner || !repo || !file) {
-      return Err(new Error("プリセットファイルのパス形式が無効です"));
-    }
-    
-    const pointer: PresetPointer = {
-      host,
-      owner,
-      repo,
-      file,
-      commit: "HEAD"
-    };
-    
-    return Ok(pointer);
-  } catch (error) {
-    return Err(error instanceof Error ? error : new Error(String(error)));
-  }
-}
 
-/**
- * プリセット名からローカルファイルパスを構築する
- * 
- * @param preset - プリセット名（例: react.md）
- * @param owner - リポジトリオーナー
- * @param repo - リポジトリ名（デフォルト: CLAUDE-md）
- * @param host - ホスト名（デフォルト: github.com）
- * @returns ローカルファイルパス
- */
-export function buildPresetPath(
-  preset: string,
-  owner: string,
-  repo: string = "CLAUDE-md",
-  host: string = "github.com"
-): string {
-  const homeDir = homedir();
-  return join(homeDir, ".ccmm", "presets", host, owner, repo, preset);
-}
 
-/**
- * 2つのファイル内容を比較して差分があるかチェックする
- * 
- * @param content1 - 1つ目のファイル内容
- * @param content2 - 2つ目のファイル内容
- * @returns 差分があるかどうか
- */
-export function hasContentDiff(content1: string, content2: string): boolean {
-  // 改行の差異を正規化
-  const normalize = (content: string) => content.trim().replace(/\r\n/g, '\n');
-  return normalize(content1) !== normalize(content2);
-}
 
 /**
  * アップストリームファイルの内容を取得する

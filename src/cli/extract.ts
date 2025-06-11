@@ -13,7 +13,8 @@ import { homedir } from "node:os";
 import inquirer from "inquirer";
 import { readFile, writeFile, fileExists } from "../core/fs.js";
 import { parseCLAUDEMd } from "./sync.js";
-import { edit, buildPresetPath } from "./edit.js";
+import { edit } from "./edit.js";
+import { buildPresetPath } from "../core/preset.js";
 import { Result, Ok, Err } from "../lib/result.js";
 import type { ExtractOptions, PresetPointer } from "../core/types/index.js";
 

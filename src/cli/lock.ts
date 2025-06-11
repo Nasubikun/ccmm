@@ -11,6 +11,7 @@ import { copyFile } from "node:fs/promises";
 import { readFile, writeFile, ensureDir, fileExists } from "../core/fs.js";
 import { makeSlug } from "../core/slug.js";
 import { getOriginUrl, isGitRepository } from "../git/index.js";
+import { validateAndSetupProject } from "../core/project.js";
 import { 
   parseCLAUDEMd, 
   generateProjectPaths, 
@@ -232,26 +233,12 @@ export async function getCurrentPresets(
  */
 export async function lock(sha: string, options: LockOptions = { sha }): Promise<Result<void, Error>> {
   try {
-    const projectRoot = process.cwd();
-    
-    // 1. Gitリポジトリの確認
-    const isGitResult = await isGitRepository(projectRoot);
-    if (!isGitResult.success || !isGitResult.data) {
-      return Err(new Error("現在のディレクトリはGitリポジトリではありません"));
+    // 1-3. Git前処理とプロジェクトセットアップ
+    const setupResult = await validateAndSetupProject(process.cwd(), sha);
+    if (!setupResult.success) {
+      return setupResult;
     }
-    
-    // 2. originURLを取得
-    const originResult = await getOriginUrl(projectRoot);
-    if (!originResult.success) {
-      return Err(new Error(`originURLを取得できませんでした: ${originResult.error.message}`));
-    }
-    
-    // 3. パス情報を生成
-    const pathsResult = generateProjectPaths(projectRoot, originResult.data, sha);
-    if (!pathsResult.success) {
-      return Err(pathsResult.error);
-    }
-    const paths = pathsResult.data;
+    const { paths } = setupResult.data;
     
     // 4. 現在のプリセット設定を取得
     const currentPresetsResult = await getCurrentPresets(paths.claudeMd, paths);

@@ -9,13 +9,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { 
-  parsePresetPath,
-  buildPresetPath,
-  hasContentDiff,
   generateBranchName,
   fetchUpstreamContent,
   push
 } from './push.js';
+import { 
+  parsePresetPath,
+  buildPresetPath,
+  hasContentDiff
+} from '../core/preset.js';
 import type { PresetPointer, PushOptions, EditOptions } from '../core/types/index.js';
 
 // モックの設定

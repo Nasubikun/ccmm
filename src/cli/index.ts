@@ -8,7 +8,6 @@
  */
 
 import { program } from "commander";
-import chalk from "chalk";
 import { sync } from "./sync.js";
 import { lock } from "./lock.js";
 import { unlock } from "./unlock.js";
@@ -16,6 +15,13 @@ import { edit } from "./edit.js";
 import { extract } from "./extract.js";
 import { push } from "./push.js";
 import { init } from "./init.js";
+import { 
+  showError, 
+  showSuccess, 
+  showInfo, 
+  executeCommand, 
+  setupProcessHandlers 
+} from "./common.js";
 import type { SyncOptions, LockOptions, CliOptions, EditOptions, ExtractOptions, PushOptions } from "../core/types/index.js";
 
 // パッケージ情報
@@ -25,29 +31,6 @@ const packageInfo = {
   description: "CLAUDE.md Manager - Manage CLAUDE.md presets across projects"
 };
 
-/**
- * エラーメッセージを表示する
- */
-function showError(message: string, error?: Error): void {
-  console.error(chalk.red("✗ Error:"), message);
-  if (error && process.env.DEBUG) {
-    console.error(chalk.gray(error.stack));
-  }
-}
-
-/**
- * 成功メッセージを表示する
- */
-function showSuccess(message: string): void {
-  console.log(chalk.green("✓"), message);
-}
-
-/**
- * 情報メッセージを表示する
- */
-function showInfo(message: string): void {
-  console.log(chalk.blue("ℹ"), message);
-}
 
 // CLI設定
 program
@@ -64,26 +47,7 @@ program
   .option("-y, --yes", "確認プロンプトをスキップ")
   .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
   .action(async (options: SyncOptions) => {
-    try {
-      if (options.verbose) {
-        showInfo("プリセット同期を開始しています...");
-      }
-      
-      const result = await sync(options);
-      
-      if (result.success) {
-        showSuccess("プリセットの同期が完了しました");
-        if (options.verbose) {
-          showInfo("CLAUDE.mdが更新されました");
-        }
-      } else {
-        showError(`同期処理に失敗しました: ${result.error?.message || 'Unknown error'}`, result.error);
-        process.exit(1);
-      }
-    } catch (error) {
-      showError("予期しないエラーが発生しました", error instanceof Error ? error : new Error(String(error)));
-      process.exit(1);
-    }
+    await executeCommand("プリセット同期", sync, options);
   });
 
 // init コマンド
@@ -94,23 +58,7 @@ program
   .option("-y, --yes", "確認プロンプトをスキップ")
   .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
   .action(async (options: CliOptions) => {
-    try {
-      if (options.verbose) {
-        showInfo("ccmmの初期化を開始しています...");
-      }
-      
-      const result = await init(options);
-      
-      if (result.success) {
-        showSuccess(result.message || "ccmmの初期化が完了しました");
-      } else {
-        showError("初期化処理に失敗しました", result.error);
-        process.exit(1);
-      }
-    } catch (error) {
-      showError("予期しないエラーが発生しました", error instanceof Error ? error : new Error(String(error)));
-      process.exit(1);
-    }
+    await executeCommand("ccmm初期化", init, options);
   });
 
 // lock コマンド
@@ -152,26 +100,7 @@ program
   .option("-y, --yes", "確認プロンプトをスキップ")
   .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
   .action(async (options: CliOptions) => {
-    try {
-      if (options.verbose) {
-        showInfo("プリセットのロックを解除しています...");
-      }
-      
-      const result = await unlock(options);
-      
-      if (result.success) {
-        showSuccess("プリセットのロックが解除されました");
-        if (options.verbose) {
-          showInfo("CLAUDE.mdがHEAD版に更新されました");
-        }
-      } else {
-        showError(`アンロック処理に失敗しました: ${result.error?.message || 'Unknown error'}`, result.error);
-        process.exit(1);
-      }
-    } catch (error) {
-      showError("予期しないエラーが発生しました", error instanceof Error ? error : new Error(String(error)));
-      process.exit(1);
-    }
+    await executeCommand("プリセットアンロック", unlock, options);
   });
 
 // edit コマンド
@@ -213,23 +142,7 @@ program
   .option("-y, --yes", "確認プロンプトをスキップ")
   .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
   .action(async (options: ExtractOptions) => {
-    try {
-      if (options.verbose) {
-        showInfo("CLAUDE.mdから変更を抽出しています...");
-      }
-      
-      const result = await extract(options);
-      
-      if (result.success) {
-        showSuccess("変更の抽出が完了しました");
-      } else {
-        showError("抽出処理に失敗しました", result.error);
-        process.exit(1);
-      }
-    } catch (error) {
-      showError("予期しないエラーが発生しました", error instanceof Error ? error : new Error(String(error)));
-      process.exit(1);
-    }
+    await executeCommand("変更抽出", extract, options);
   });
 
 // push コマンド
@@ -265,16 +178,8 @@ program
     }
   });
 
-// グローバルエラーハンドリング
-process.on('uncaughtException', (error) => {
-  showError("予期しないエラーが発生しました", error);
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (reason) => {
-  showError("未処理のPromise拒否が発生しました", reason instanceof Error ? reason : new Error(String(reason)));
-  process.exit(1);
-});
+// グローバルエラーハンドリングを設定
+setupProcessHandlers();
 
 // CLI実行
 program.parse();

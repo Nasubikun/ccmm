@@ -10,6 +10,7 @@ import { homedir } from "node:os";
 import { readFile, writeFile, ensureDir, expandTilde, fileExists } from "../core/fs.js";
 import { makeSlug } from "../core/slug.js";
 import { getOriginUrl, isGitRepository, shallowFetch, batchFetch } from "../git/index.js";
+import { validateAndSetupProject } from "../core/project.js";
 import { Result, Ok, Err } from "../lib/result.js";
 import { isInitialized } from "./init.js";
 import type { 
@@ -345,34 +346,18 @@ export async function updateClaudeMd(
  */
 export async function sync(options: SyncOptions = {}): Promise<Result<void, Error>> {
   try {
-    const projectRoot = process.cwd();
-    
     // 0. ccmmが初期化されているか確認
     if (!isInitialized()) {
       return Err(new Error("ccmmが初期化されていません。先に 'ccmm init' を実行してください"));
     }
     
-    // 1. Gitリポジトリの確認
-    const isGitResult = await isGitRepository(projectRoot);
-    if (!isGitResult.success || !isGitResult.data) {
-      return Err(new Error("現在のディレクトリはGitリポジトリではありません"));
-    }
-    
-    // 2. originURLを取得
-    const originResult = await getOriginUrl(projectRoot);
-    if (!originResult.success) {
-      return Err(new Error(`originURLを取得できませんでした: ${originResult.error.message}`));
-    }
-    
-    // 3. コミットハッシュを決定
+    // 1-4. Git前処理とプロジェクトセットアップ
     const commit = options.commit || "HEAD";
-    
-    // 4. パス情報を生成
-    const pathsResult = generateProjectPaths(projectRoot, originResult.data, commit);
-    if (!pathsResult.success) {
-      return Err(pathsResult.error);
+    const setupResult = await validateAndSetupProject(process.cwd(), commit);
+    if (!setupResult.success) {
+      return setupResult;
     }
-    const paths = pathsResult.data;
+    const { paths } = setupResult.data;
     
     // 5. 既存のCLAUDE.mdを解析
     let existingContent: ClaudeMdContent | undefined;

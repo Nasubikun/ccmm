@@ -7,30 +7,10 @@
  */
 
 import { spawn } from "node:child_process";
-import { join } from "node:path";
-import { homedir } from "node:os";
-import { writeFile, ensureDir, fileExists } from "../core/fs.js";
+import { buildPresetPath, ensurePresetFile } from "../core/preset.js";
 import { Result, Ok, Err } from "../lib/result.js";
 import type { EditOptions } from "../core/types/index.js";
 
-/**
- * プリセットファイルのパスを構築する
- * 
- * @param preset - プリセットファイル名（例: react.md）
- * @param owner - リポジトリオーナー（例: myorg）
- * @param repo - リポジトリ名（例: CLAUDE-md）
- * @param host - ホスト名（デフォルト: github.com）
- * @returns プリセットファイルの絶対パス
- */
-export function buildPresetPath(
-  preset: string,
-  owner: string,
-  repo: string = "CLAUDE-md",
-  host: string = "github.com"
-): string {
-  const homeDir = homedir();
-  return join(homeDir, ".ccmm", "presets", host, owner, repo, preset);
-}
 
 /**
  * エディタでファイルを開く
@@ -61,35 +41,6 @@ export async function openInEditor(filePath: string): Promise<Result<void, Error
   });
 }
 
-/**
- * プリセットファイルの存在確認と必要に応じた新規作成
- * 
- * @param filePath - プリセットファイルのパス
- * @returns 成功またはエラー
- */
-export async function ensurePresetFile(filePath: string): Promise<Result<void, Error>> {
-  try {
-    const exists = await fileExists(filePath);
-    
-    if (!exists) {
-      // 親ディレクトリを作成
-      const ensureDirResult = await ensureDir(filePath.substring(0, filePath.lastIndexOf("/")));
-      if (!ensureDirResult.success) {
-        return ensureDirResult;
-      }
-      
-      // 空のファイルを作成
-      const writeResult = await writeFile(filePath, "");
-      if (!writeResult.success) {
-        return writeResult;
-      }
-    }
-    
-    return Ok(undefined);
-  } catch (error) {
-    return Err(error instanceof Error ? error : new Error(String(error)));
-  }
-}
 
 /**
  * メイン編集処理

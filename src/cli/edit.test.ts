@@ -9,11 +9,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { 
-  buildPresetPath, 
-  ensurePresetFile, 
   openInEditor, 
   edit 
 } from './edit.js';
+import { 
+  buildPresetPath, 
+  ensurePresetFile
+} from '../core/preset.js';
 import type { EditOptions } from '../core/types/index.js';
 
 // モックの設定

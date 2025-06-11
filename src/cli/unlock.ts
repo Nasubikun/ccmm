@@ -7,6 +7,7 @@
 
 import { readFile, fileExists } from "../core/fs.js";
 import { getOriginUrl, isGitRepository } from "../git/index.js";
+import { validateAndSetupProject } from "../core/project.js";
 import { 
   parseCLAUDEMd, 
   generateProjectPaths, 
@@ -182,26 +183,12 @@ export async function regenerateHeadMerged(
  */
 export async function unlock(options: CliOptions = {}): Promise<Result<void, Error>> {
   try {
-    const projectRoot = process.cwd();
-    
-    // 1. Gitリポジトリの確認
-    const isGitResult = await isGitRepository(projectRoot);
-    if (!isGitResult.success || !isGitResult.data) {
-      return Err(new Error("現在のディレクトリはGitリポジトリではありません"));
+    // 1-3. Git前処理とプロジェクトセットアップ（HEAD版用）
+    const setupResult = await validateAndSetupProject(process.cwd(), "HEAD");
+    if (!setupResult.success) {
+      return setupResult;
     }
-    
-    // 2. originURLを取得
-    const originResult = await getOriginUrl(projectRoot);
-    if (!originResult.success) {
-      return Err(new Error(`originURLを取得できませんでした: ${originResult.error.message}`));
-    }
-    
-    // 3. パス情報を生成（HEAD版用）
-    const pathsResult = generateProjectPaths(projectRoot, originResult.data, "HEAD");
-    if (!pathsResult.success) {
-      return Err(pathsResult.error);
-    }
-    const paths = pathsResult.data;
+    const { paths } = setupResult.data;
     
     // 4. 現在のロック状態を検出
     const lockStateResult = await detectLockState(paths.claudeMd, paths);
