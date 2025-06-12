@@ -2,7 +2,7 @@
  * slug.ts の動作確認用テスト
  */
 import { describe, it, expect } from "vitest";
-import { makeSlug } from "./slug.js";
+import { makeSlug, makeSlugFromPath } from "./slug.js";
 
 describe("makeSlug", () => {
   describe("具体的なテストケース", () => {
@@ -71,6 +71,24 @@ describe("makeSlug", () => {
       expect(typeof slug).toBe("string");
       expect(slug.length).toBe(16);
     });
+
+    it("file:// URL形式", () => {
+      const url = "file:///home/user/my-project";
+      const slug = makeSlug(url);
+      expect(slug).toBeDefined();
+      expect(typeof slug).toBe("string");
+      expect(slug.length).toBe(16);
+      expect(slug).toMatch(/^[a-f0-9]{16}$/);
+    });
+
+    it("file:// URL形式（Windows形式）", () => {
+      const url = "file:///C:/Users/user/my-project";
+      const slug = makeSlug(url);
+      expect(slug).toBeDefined();
+      expect(typeof slug).toBe("string");
+      expect(slug.length).toBe(16);
+      expect(slug).toMatch(/^[a-f0-9]{16}$/);
+    });
   });
 
   describe("エラーハンドリング", () => {
@@ -130,5 +148,39 @@ describe("makeSlug", () => {
       const slug2 = makeSlug(url2);
       expect(slug1).toBe(slug2);
     });
+  });
+});
+
+describe("makeSlugFromPath", () => {
+  it("ファイルパスからslugを生成する", () => {
+    const path = "/home/user/my-project";
+    const slug = makeSlugFromPath(path);
+    expect(slug).toBeDefined();
+    expect(typeof slug).toBe("string");
+    expect(slug.length).toBe(16);
+    expect(slug).toMatch(/^[a-f0-9]{16}$/);
+  });
+
+  it("末尾のスラッシュは無視される", () => {
+    const path1 = "/home/user/my-project";
+    const path2 = "/home/user/my-project/";
+    const slug1 = makeSlugFromPath(path1);
+    const slug2 = makeSlugFromPath(path2);
+    expect(slug1).toBe(slug2);
+  });
+
+  it("異なるパスから異なるslugが生成される", () => {
+    const path1 = "/home/user/project1";
+    const path2 = "/home/user/project2";
+    const slug1 = makeSlugFromPath(path1);
+    const slug2 = makeSlugFromPath(path2);
+    expect(slug1).not.toBe(slug2);
+  });
+
+  it("同じパスから同じslugが生成される（冪等性）", () => {
+    const path = "/var/projects/awesome-app";
+    const slug1 = makeSlugFromPath(path);
+    const slug2 = makeSlugFromPath(path);
+    expect(slug1).toBe(slug2);
   });
 });

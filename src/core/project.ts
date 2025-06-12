@@ -67,22 +67,33 @@ export async function validateAndSetupProject(
   commit: string = "HEAD"
 ): Promise<Result<ProjectSetupResult, Error>> {
   try {
+    let originUrl: string;
+    let slug: string;
+    
     // 1. Gitリポジトリの確認
     const isGitResult = await isGitRepository(projectRoot);
-    if (!isGitResult.success || !isGitResult.data) {
-      return Err(new Error("現在のディレクトリはGitリポジトリではありません"));
+    
+    if (isGitResult.success && isGitResult.data) {
+      // Gitリポジトリの場合
+      // 2. originURLを取得
+      const originResult = await getOriginUrl(projectRoot);
+      if (!originResult.success) {
+        // originが設定されていない場合は、ローカルプロジェクトとして扱う
+        const { makeSlugFromPath } = await import("./slug.js");
+        originUrl = `file://${projectRoot}`;
+        slug = makeSlugFromPath(projectRoot);
+      } else {
+        originUrl = originResult.data;
+        // 3. プロジェクトスラッグを生成
+        slug = makeSlug(originUrl);
+      }
+    } else {
+      // Gitリポジトリでない場合
+      // プロジェクトパスからslugを生成
+      const { makeSlugFromPath } = await import("./slug.js");
+      originUrl = `file://${projectRoot}`;
+      slug = makeSlugFromPath(projectRoot);
     }
-    
-    // 2. originURLを取得
-    const originResult = await getOriginUrl(projectRoot);
-    if (!originResult.success) {
-      return Err(new Error(`originURLを取得できませんでした: ${originResult.error.message}`));
-    }
-    
-    const originUrl = originResult.data;
-    
-    // 3. プロジェクトスラッグを生成
-    const slug = makeSlug(originUrl);
     
     // 4. パス情報を生成
     const pathsResult = generateProjectPaths(projectRoot, originUrl, commit);

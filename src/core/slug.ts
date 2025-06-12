@@ -10,6 +10,20 @@ function parseGitUrl(originUrl: string): { host: string; owner: string; repo: st
   // URLを正規化（末尾の.gitを除去、スペースをトリム）
   const normalizedUrl = originUrl.trim().replace(/\.git$/, "");
   
+  // file://形式: file:///path/to/repo
+  if (normalizedUrl.startsWith("file://")) {
+    // file://形式の場合はローカルファイルシステムなので、特別な処理
+    const path = normalizedUrl.replace("file://", "");
+    const pathParts = path.split("/").filter(p => p);
+    const repoName = pathParts[pathParts.length - 1] || "local-repo";
+    
+    return {
+      host: "localhost",
+      owner: "local",
+      repo: repoName,
+    };
+  }
+  
   // HTTPS形式: https://github.com/owner/repo
   const httpsMatch = normalizedUrl.match(/^https?:\/\/([^\/]+)\/([^\/]+)\/([^\/]+)$/);
   if (httpsMatch) {
@@ -73,5 +87,27 @@ export function makeSlug(originUrl: string): string {
   
   // 最終的なスラッグとして、この文字列をさらにハッシュ化
   // （ディレクトリ名として使いやすい長さにするため）
+  return sha256Short(slugSource);
+}
+
+/**
+ * ファイルパスからプロジェクト用のスラッグを生成する
+ * Gitリポジトリでないプロジェクトで使用
+ * 
+ * @param projectPath - プロジェクトのパス
+ * @returns プロジェクト識別用のスラッグ
+ * 
+ * @example
+ * makeSlugFromPath("/home/user/my-project")
+ * // => "a1b2c3d4e5f6g7h8" (実際のハッシュ値)
+ */
+export function makeSlugFromPath(projectPath: string): string {
+  // パスを正規化（末尾のスラッシュを除去）
+  const normalizedPath = projectPath.replace(/\/$/, "");
+  
+  // パスベースのスラッグソースを生成
+  const slugSource = `local__${normalizedPath}`;
+  
+  // ハッシュ化して返す
   return sha256Short(slugSource);
 }
