@@ -5,11 +5,40 @@
  * sync, lock, unlock コマンドで共通する前処理ロジックを統合
  */
 
+import { join } from "node:path";
+import { homedir } from "node:os";
 import { Result, Ok, Err } from "../lib/result.js";
 import { isGitRepository, getOriginUrl } from "../git/index.js";
-import { generateProjectPaths } from "../cli/sync.js";
 import type { ProjectPaths, ProjectInfo } from "./types/index.js";
 import { makeSlug } from "./slug.js";
+
+/**
+ * プロジェクトのパス情報を生成する
+ * 
+ * @param projectRoot - プロジェクトのルートディレクトリ
+ * @param originUrl - GitリポジトリのoriginURL  
+ * @param commit - コミットハッシュまたはHEAD
+ * @returns パス情報
+ */
+export function generateProjectPaths(projectRoot: string, originUrl: string, commit: string): Result<ProjectPaths, Error> {
+  try {
+    const slug = makeSlug(originUrl);
+    const homeDir = homedir();
+    const ccmmHome = join(homeDir, '.ccmm');
+    
+    const paths: ProjectPaths = {
+      root: projectRoot,
+      claudeMd: join(projectRoot, 'CLAUDE.md'),
+      homePresetDir: join(ccmmHome, 'presets'),
+      projectDir: join(ccmmHome, 'projects', slug),
+      mergedPresetPath: join(ccmmHome, 'projects', slug, `merged-preset-${commit}.md`)
+    };
+    
+    return Ok(paths);
+  } catch (error) {
+    return Err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
 
 /**
  * プロジェクトの基本情報

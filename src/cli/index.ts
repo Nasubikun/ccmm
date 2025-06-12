@@ -22,6 +22,7 @@ import {
   executeCommand, 
   setupProcessHandlers 
 } from "./common.js";
+import { Ok } from "../lib/result.js";
 import type { SyncOptions, LockOptions, CliOptions, EditOptions, ExtractOptions, PushOptions } from "../core/types/index.js";
 
 // パッケージ情報
@@ -70,26 +71,7 @@ program
   .option("-y, --yes", "確認プロンプトをスキップ")
   .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
   .action(async (sha: string, options: LockOptions) => {
-    try {
-      if (options.verbose) {
-        showInfo(`プリセットを ${sha} でロックしています...`);
-      }
-      
-      const result = await lock(sha, { ...options, sha });
-      
-      if (result.success) {
-        showSuccess(`プリセットが ${sha} でロックされました`);
-        if (options.verbose) {
-          showInfo("CLAUDE.mdがベンダー版に更新されました");
-        }
-      } else {
-        showError(`ロック処理に失敗しました: ${result.error?.message || 'Unknown error'}`, result.error);
-        process.exit(1);
-      }
-    } catch (error) {
-      showError("予期しないエラーが発生しました", error instanceof Error ? error : new Error(String(error)));
-      process.exit(1);
-    }
+    await executeCommand("プリセットロック", (opts) => lock(sha, { ...opts, sha }), options);
   });
 
 // unlock コマンド
@@ -114,23 +96,9 @@ program
   .option("-y, --yes", "確認プロンプトをスキップ")
   .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
   .action(async (preset: string, options: EditOptions) => {
-    try {
-      if (options.verbose) {
-        showInfo(`プリセット ${preset} の編集を開始しています...`);
-      }
-      
-      const result = await edit(preset, options);
-      
-      if (result.success) {
-        showSuccess(`プリセット ${preset} の編集が完了しました`);
-      } else {
-        showError("編集処理に失敗しました", result.error);
-        process.exit(1);
-      }
-    } catch (error) {
-      showError("予期しないエラーが発生しました", error instanceof Error ? error : new Error(String(error)));
-      process.exit(1);
-    }
+    await executeCommand("プリセット編集", (opts) => edit(preset, opts).then(result => 
+      result.success ? Ok(`プリセット ${preset} の編集が完了しました`) : result
+    ), options);
   });
 
 // extract コマンド
@@ -159,23 +127,7 @@ program
   .option("-y, --yes", "確認プロンプトをスキップ")
   .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
   .action(async (preset: string, options: PushOptions & EditOptions) => {
-    try {
-      if (options.verbose) {
-        showInfo(`プリセット ${preset} の変更をプッシュしています...`);
-      }
-      
-      const result = await push(preset, options);
-      
-      if (result.success) {
-        showSuccess(result.data);
-      } else {
-        showError("プッシュ処理に失敗しました", result.error);
-        process.exit(1);
-      }
-    } catch (error) {
-      showError("予期しないエラーが発生しました", error instanceof Error ? error : new Error(String(error)));
-      process.exit(1);
-    }
+    await executeCommand("プリセットプッシュ", (opts) => push(preset, opts), options);
   });
 
 // グローバルエラーハンドリングを設定

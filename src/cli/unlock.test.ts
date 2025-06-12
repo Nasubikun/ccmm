@@ -18,6 +18,7 @@ import type { ClaudeMdContent, ProjectPaths, PresetPointer } from '../core/types
 vi.mock('../core/fs.js');
 vi.mock('../git/index.js');
 vi.mock('./sync.js');
+vi.mock('../core/project.js');
 vi.mock('./init.js');
 
 describe('unlock機能', () => {
@@ -330,6 +331,7 @@ describe('unlock機能', () => {
     const mockIsGitRepository = vi.fn();
     const mockGetOriginUrl = vi.fn();
     const mockGenerateProjectPaths = vi.fn();
+    const mockValidateAndSetupProject = vi.fn();
     const mockFileExists = vi.fn();
     const mockReadFile = vi.fn();
     const mockParseCLAUDEMd = vi.fn();
@@ -342,12 +344,14 @@ describe('unlock機能', () => {
     beforeEach(async () => {
       const git = await import('../git/index.js');
       const sync = await import('./sync.js');
+      const project = await import('../core/project.js');
       const fs = await import('../core/fs.js');
       const init = await import('./init.js');
       
       vi.mocked(git.isGitRepository).mockImplementation(mockIsGitRepository);
       vi.mocked(git.getOriginUrl).mockImplementation(mockGetOriginUrl);
-      vi.mocked(sync.generateProjectPaths).mockImplementation(mockGenerateProjectPaths);
+      vi.mocked(project.generateProjectPaths).mockImplementation(mockGenerateProjectPaths);
+      vi.mocked(project.validateAndSetupProject).mockImplementation(mockValidateAndSetupProject);
       vi.mocked(sync.parseCLAUDEMd).mockImplementation(mockParseCLAUDEMd);
       vi.mocked(sync.fetchPresets).mockImplementation(mockFetchPresets);
       vi.mocked(sync.fetchLocalPresets).mockImplementation(mockFetchLocalPresets);
@@ -368,10 +372,16 @@ describe('unlock機能', () => {
       };
       const lockedSha = 'abc123def456';
 
-      // Mock external dependencies
-      mockIsGitRepository.mockResolvedValue({ success: true, data: true });
-      mockGetOriginUrl.mockResolvedValue({ success: true, data: 'https://github.com/myorg/myrepo.git' });
-      mockGenerateProjectPaths.mockReturnValue({ success: true, data: mockPaths });
+      // validateAndSetupProject の正しいモック
+      mockValidateAndSetupProject.mockResolvedValue({
+        success: true,
+        data: {
+          projectRoot: '/project',
+          originUrl: 'https://github.com/myorg/myrepo.git',
+          slug: 'test-slug',
+          paths: mockPaths
+        }
+      });
       
       // Mock detectLockState to return locked state
       mockFileExists.mockResolvedValue(true);
@@ -408,13 +418,14 @@ describe('unlock機能', () => {
       const result = await unlock();
 
       expect(result.success).toBe(true);
-      expect(mockIsGitRepository).toHaveBeenCalled();
-      expect(mockGetOriginUrl).toHaveBeenCalled();
-      expect(mockGenerateProjectPaths).toHaveBeenCalledWith('/Users/jo/dev/ccmm', 'https://github.com/myorg/myrepo.git', 'HEAD');
+      expect(mockValidateAndSetupProject).toHaveBeenCalledWith('/Users/jo/dev/ccmm', 'HEAD');
     });
 
     it('Gitリポジトリでない場合、エラーを返す', async () => {
-      mockIsGitRepository.mockResolvedValue({ success: true, data: false });
+      mockValidateAndSetupProject.mockResolvedValue({
+        success: false,
+        error: new Error('現在のディレクトリはGitリポジトリではありません')
+      });
 
       const result = await unlock();
 
@@ -425,8 +436,10 @@ describe('unlock機能', () => {
     });
 
     it('origin URL取得に失敗した場合、エラーを返す', async () => {
-      mockIsGitRepository.mockResolvedValue({ success: true, data: true });
-      mockGetOriginUrl.mockResolvedValue({ success: false, error: new Error('origin not found') });
+      mockValidateAndSetupProject.mockResolvedValue({
+        success: false,
+        error: new Error('originURLを取得できませんでした: origin not found')
+      });
 
       const result = await unlock();
 
@@ -445,9 +458,15 @@ describe('unlock機能', () => {
         mergedPresetPath: '/home/.ccmm/projects/test-slug/merged-preset-HEAD.md'
       };
 
-      mockIsGitRepository.mockResolvedValue({ success: true, data: true });
-      mockGetOriginUrl.mockResolvedValue({ success: true, data: 'https://github.com/myorg/myrepo.git' });
-      mockGenerateProjectPaths.mockReturnValue({ success: true, data: mockPaths });
+      mockValidateAndSetupProject.mockResolvedValue({
+        success: true,
+        data: {
+          projectRoot: '/project',
+          originUrl: 'https://github.com/myorg/myrepo.git',
+          slug: 'test-slug',
+          paths: mockPaths
+        }
+      });
       
       // Mock detectLockState to return not locked (HEAD commit)
       mockFileExists.mockResolvedValue(true);
@@ -485,9 +504,15 @@ describe('unlock機能', () => {
         mergedPresetPath: '/home/.ccmm/projects/test-slug/merged-preset-HEAD.md'
       };
 
-      mockIsGitRepository.mockResolvedValue({ success: true, data: true });
-      mockGetOriginUrl.mockResolvedValue({ success: true, data: 'https://github.com/myorg/myrepo.git' });
-      mockGenerateProjectPaths.mockReturnValue({ success: true, data: mockPaths });
+      mockValidateAndSetupProject.mockResolvedValue({
+        success: true,
+        data: {
+          projectRoot: '/project',
+          originUrl: 'https://github.com/myorg/myrepo.git',
+          slug: 'test-slug',
+          paths: mockPaths
+        }
+      });
       
       // Mock detectLockState to fail
       mockFileExists.mockResolvedValue(true);

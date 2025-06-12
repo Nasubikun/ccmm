@@ -8,14 +8,15 @@
 import { readFile, fileExists } from "../core/fs.js";
 import { getOriginUrl, isGitRepository } from "../git/index.js";
 import { validateAndSetupProject } from "../core/project.js";
+import { getDefaultPresetPointers } from "../core/config.js";
 import { 
   parseCLAUDEMd, 
-  generateProjectPaths, 
   fetchPresets, 
   fetchLocalPresets,
   generateMerged, 
   updateClaudeMd 
 } from "./sync.js";
+import { generateProjectPaths } from "../core/project.js";
 import { Result, Ok, Err } from "../lib/result.js";
 import type { 
   CliOptions, 
@@ -94,31 +95,9 @@ export async function restorePresetConfiguration(
 ): Promise<Result<PresetPointer[], Error>> {
   try {
     // プリセット設定をconfig.jsonから復元
-    try {
-      const { loadConfig } = await import("./init.js");
-      const configResult = loadConfig();
-      
-      if (configResult.success && configResult.data.defaultPresetRepo && configResult.data.defaultPresets) {
-        const config = configResult.data;
-        const presetPointers: PresetPointer[] = [];
-        
-        // file:// プロトコルの場合の処理
-        if (config.defaultPresetRepo?.startsWith("file://") && config.defaultPresets) {
-          for (const presetFile of config.defaultPresets) {
-            presetPointers.push({
-              host: "localhost",
-              owner: "local", 
-              repo: "presets",
-              file: presetFile,
-              commit: "HEAD" // unlockでHEADに戻す
-            });
-          }
-        }
-        
-        return Ok(presetPointers);
-      }
-    } catch (error) {
-      // config読み取りエラーは続行（デフォルト設定を使用）
+    const presetPointersResult = getDefaultPresetPointers("HEAD");
+    if (presetPointersResult.success) {
+      return presetPointersResult;
     }
     
     // configが無い場合は空のプリセットリストを返す
@@ -181,7 +160,7 @@ export async function regenerateHeadMerged(
  * @param options - アンロックオプション
  * @returns アンロック結果
  */
-export async function unlock(options: CliOptions = {}): Promise<Result<void, Error>> {
+export async function unlock(options: CliOptions = {}): Promise<Result<string, Error>> {
   try {
     // 1-3. Git前処理とプロジェクトセットアップ（HEAD版用）
     const setupResult = await validateAndSetupProject(process.cwd(), "HEAD");
@@ -221,7 +200,7 @@ export async function unlock(options: CliOptions = {}): Promise<Result<void, Err
       return Err(updateResult.error);
     }
     
-    return Ok(undefined);
+    return Ok("プリセットのロックが解除されました");
   } catch (error) {
     return Err(error instanceof Error ? error : new Error(String(error)));
   }

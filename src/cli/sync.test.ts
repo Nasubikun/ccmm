@@ -9,12 +9,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { join } from 'node:path';
 import { 
   parseCLAUDEMd, 
-  generateProjectPaths, 
   fetchPresets, 
   generateMerged, 
   updateClaudeMd,
   sync 
 } from './sync.js';
+import { generateProjectPaths } from '../core/project.js';
 import type { PresetPointer, PresetInfo } from '../core/types/index.js';
 
 // モックの設定

@@ -20,6 +20,7 @@ import type { PresetInfo, ProjectPaths, VendorInfo } from '../core/types/index.j
 vi.mock('../core/fs.js');
 vi.mock('../git/index.js');
 vi.mock('./sync.js');
+vi.mock('../core/project.js');
 vi.mock('node:fs/promises');
 
 describe('lock機能', () => {
@@ -308,6 +309,7 @@ describe('lock機能', () => {
     const mockIsGitRepository = vi.fn();
     const mockGetOriginUrl = vi.fn();
     const mockGenerateProjectPaths = vi.fn();
+    const mockValidateAndSetupProject = vi.fn();
     const mockFileExists = vi.fn();
     const mockReadFile = vi.fn();
     const mockParseCLAUDEMd = vi.fn();
@@ -319,12 +321,14 @@ describe('lock機能', () => {
     beforeEach(async () => {
       const git = await import('../git/index.js');
       const sync = await import('./sync.js');
+      const project = await import('../core/project.js');
       const fs = await import('../core/fs.js');
       const nodeFs = await import('node:fs/promises');
       
       vi.mocked(git.isGitRepository).mockImplementation(mockIsGitRepository);
       vi.mocked(git.getOriginUrl).mockImplementation(mockGetOriginUrl);
-      vi.mocked(sync.generateProjectPaths).mockImplementation(mockGenerateProjectPaths);
+      vi.mocked(project.generateProjectPaths).mockImplementation(mockGenerateProjectPaths);
+      vi.mocked(project.validateAndSetupProject).mockImplementation(mockValidateAndSetupProject);
       vi.mocked(sync.parseCLAUDEMd).mockImplementation(mockParseCLAUDEMd);
       vi.mocked(sync.updateClaudeMd).mockImplementation(mockUpdateClaudeMd);
       vi.mocked(fs.fileExists).mockImplementation(mockFileExists);
@@ -344,10 +348,16 @@ describe('lock機能', () => {
         mergedPresetPath: '/home/.ccmm/projects/test-slug/merged-preset-abc123def456.md'
       };
 
-      // Mock external dependencies
-      mockIsGitRepository.mockResolvedValue({ success: true, data: true });
-      mockGetOriginUrl.mockResolvedValue({ success: true, data: 'https://github.com/myorg/myrepo.git' });
-      mockGenerateProjectPaths.mockReturnValue({ success: true, data: mockPaths });
+      // validateAndSetupProject の正しいモック
+      mockValidateAndSetupProject.mockResolvedValue({
+        success: true,
+        data: {
+          projectRoot: '/project',
+          originUrl: 'https://github.com/myorg/myrepo.git',
+          slug: 'test-slug',
+          paths: mockPaths
+        }
+      });
       
       // Mock getCurrentPresets to return empty (current implementation behavior)
       mockFileExists.mockResolvedValue(true);
@@ -379,15 +389,16 @@ describe('lock機能', () => {
       if (!result.success) {
         expect(result.error.message).toBe('ロックするプリセットが見つかりません。まず sync コマンドを実行してください');
       }
-      expect(mockIsGitRepository).toHaveBeenCalled();
-      expect(mockGetOriginUrl).toHaveBeenCalled();
-      expect(mockGenerateProjectPaths).toHaveBeenCalledWith('/Users/jo/dev/ccmm', 'https://github.com/myorg/myrepo.git', sha);
+      expect(mockValidateAndSetupProject).toHaveBeenCalledWith('/Users/jo/dev/ccmm', sha);
     });
 
     it('Gitリポジトリでない場合、エラーを返す', async () => {
       const sha = 'abc123def456';
 
-      mockIsGitRepository.mockResolvedValue({ success: true, data: false });
+      mockValidateAndSetupProject.mockResolvedValue({
+        success: false,
+        error: new Error('現在のディレクトリはGitリポジトリではありません')
+      });
 
       const result = await lock(sha);
 
@@ -407,9 +418,15 @@ describe('lock機能', () => {
         mergedPresetPath: '/home/.ccmm/projects/test-slug/merged-preset-abc123def456.md'
       };
 
-      mockIsGitRepository.mockResolvedValue({ success: true, data: true });
-      mockGetOriginUrl.mockResolvedValue({ success: true, data: 'https://github.com/myorg/myrepo.git' });
-      mockGenerateProjectPaths.mockReturnValue({ success: true, data: mockPaths });
+      mockValidateAndSetupProject.mockResolvedValue({
+        success: true,
+        data: {
+          projectRoot: '/project',
+          originUrl: 'https://github.com/myorg/myrepo.git',
+          slug: 'test-slug',
+          paths: mockPaths
+        }
+      });
       
       // Mock getCurrentPresets to return empty (current implementation behavior)
       mockFileExists.mockResolvedValue(true);

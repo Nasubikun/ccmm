@@ -57,15 +57,6 @@ export interface CommonCliOptions {
   dryRun?: boolean;
 }
 
-/**
- * コマンド実行の共通結果型
- */
-export interface CommandResult {
-  success: boolean;
-  message?: string;
-  data?: string;
-  error?: Error;
-}
 
 /**
  * 非同期コマンドを実行し、共通エラーハンドリングを適用する
@@ -77,7 +68,7 @@ export interface CommandResult {
  */
 export async function executeCommand<T extends CommonCliOptions>(
   commandName: string,
-  commandFn: (options: T) => Promise<Result<void, Error>> | Promise<CommandResult>,
+  commandFn: (options: T) => Promise<Result<string, Error>>,
   options: T
 ): Promise<never> {
   try {
@@ -87,30 +78,15 @@ export async function executeCommand<T extends CommonCliOptions>(
     
     const result = await commandFn(options);
     
-    // Result型の場合
-    if ('success' in result && typeof result.success === 'boolean') {
-      if (result.success) {
-        // CommandResult型の場合
-        if ('message' in result && result.message) {
-          showSuccess(result.message);
-        } else {
-          showSuccess(`${commandName}が完了しました`);
-        }
-        
-        // dataがある場合は表示
-        if ('data' in result && result.data) {
-          console.log(result.data);
-        }
+    if (result.success) {
+      if (result.data.trim()) {
+        showSuccess(result.data);
       } else {
-        // エラーの場合
-        const errorMessage = 'error' in result && result.error 
-          ? result.error.message 
-          : 'Unknown error';
-        const error = 'error' in result ? result.error : undefined;
-        
-        showError(`${commandName}処理に失敗しました: ${errorMessage}`, error);
-        process.exit(1);
+        showSuccess(`${commandName}が完了しました`);
       }
+    } else {
+      showError(`${commandName}処理に失敗しました: ${result.error.message}`, result.error);
+      process.exit(1);
     }
     
     // 正常終了

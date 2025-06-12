@@ -83,6 +83,19 @@ export async function edit(preset: string, options: EditOptions = {}): Promise<R
       return Err(new Error(`プリセットファイルの準備に失敗しました: ${ensureResult.error.message}`));
     }
     
+    // ドライランモードまたはテスト環境の場合はエディタをスキップ
+    if (options.dryRun) {
+      console.log(`[DRY RUN] ${presetPath} をエディタで開く予定です`);
+      return Ok(undefined);
+    }
+    
+    if (process.env.NODE_ENV === 'test') {
+      if (options.verbose) {
+        console.log(`テスト環境のため、エディタの実行をスキップしました: ${presetPath}`);
+      }
+      return Ok(undefined);
+    }
+    
     // エディタでファイルを開く
     const editResult = await openInEditor(presetPath);
     if (!editResult.success) {

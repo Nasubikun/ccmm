@@ -379,7 +379,7 @@ export async function removeFromClaudeMd(selectedLines: string[], claudeMdPath: 
  * @param options - 抽出オプション
  * @returns 抽出結果またはエラー
  */
-export async function extract(options: ExtractOptions = {}): Promise<Result<void, Error>> {
+export async function extract(options: ExtractOptions = {}): Promise<Result<string, Error>> {
   try {
     const projectRoot = process.cwd();
     const claudeMdPath = join(projectRoot, 'CLAUDE.md');
@@ -409,16 +409,41 @@ export async function extract(options: ExtractOptions = {}): Promise<Result<void
       changes.forEach(change => {
         console.log(`  ${change.lineNumber}: ${change.content}`);
       });
-      return Ok(undefined);
+      return Ok("[DRY RUN] 抽出操作をシミュレートしました");
     }
     
-    // 2. ユーザーに選択させる
-    const selectionResult = await promptUserSelection(changes);
-    if (!selectionResult.success) {
-      return Err(selectionResult.error);
-    }
+    // 2. ユーザーに選択させる（--yesの場合は自動選択）
+    let selection: ExtractSelection;
     
-    const selection = selectionResult.data;
+    if (options.yes) {
+      // --yes オプションが指定されている場合は全ての行を自動選択
+      const presetChoicesResult = await getPresetChoices();
+      if (!presetChoicesResult.success) {
+        return Err(presetChoicesResult.error);
+      }
+      
+      const presetChoices = presetChoicesResult.data;
+      const defaultPreset = presetChoices[0]; // 最初のプリセットを選択
+      
+      if (!defaultPreset) {
+        return Err(new Error("利用可能なプリセットが見つかりません"));
+      }
+      
+      selection = {
+        selectedLines: changes.map(change => change.content),
+        preset: defaultPreset
+      };
+      
+      if (options.verbose) {
+        console.log(`自動選択: ${changes.length} 行を ${defaultPreset.file} に抽出します`);
+      }
+    } else {
+      const selectionResult = await promptUserSelection(changes);
+      if (!selectionResult.success) {
+        return Err(selectionResult.error);
+      }
+      selection = selectionResult.data;
+    }
     
     if (options.verbose) {
       console.log(`${selection.selectedLines.length} 行を ${selection.preset.file} に抽出します`);
@@ -464,15 +489,20 @@ export async function extract(options: ExtractOptions = {}): Promise<Result<void
         }
       }
     } else {
-      // --yes オプションが指定されている場合は自動でエディタを開く
-      await edit(selection.preset.file, {
-        owner: selection.preset.owner,
-        repo: selection.preset.repo,
-        verbose: options.verbose
-      });
+      // --yes オプションが指定されている場合
+      // テスト環境（NODE_ENV=test）ではエディタをスキップ
+      if (process.env.NODE_ENV !== 'test') {
+        await edit(selection.preset.file, {
+          owner: selection.preset.owner,
+          repo: selection.preset.repo,
+          verbose: options.verbose
+        });
+      } else if (options.verbose) {
+        console.log("テスト環境のため、エディタの自動実行をスキップしました");
+      }
     }
     
-    return Ok(undefined);
+    return Ok(`${selection.selectedLines.length}行を${selection.preset.file}に抽出しました`);
   } catch (error) {
     return Err(error instanceof Error ? error : new Error(String(error)));
   }

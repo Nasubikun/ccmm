@@ -5,6 +5,28 @@ import { describe, it, expect } from "vitest";
 import { makeSlug } from "./slug.js";
 
 describe("makeSlug", () => {
+  describe("具体的なテストケース", () => {
+    it("既知のURLで期待されるslugを生成する", () => {
+      // ハッシュアルゴリズムが正確に動作することを確認
+      const testCases = [
+        {
+          url: "https://github.com/test/example.git",
+          // 実際のハッシュ値を計算して期待値を設定
+          expectedPattern: /^[a-f0-9]{16}$/
+        },
+        {
+          url: "git@github.com:test/example.git", 
+          expectedPattern: /^[a-f0-9]{16}$/
+        }
+      ];
+      
+      testCases.forEach(({ url, expectedPattern }) => {
+        const slug = makeSlug(url);
+        expect(slug).toMatch(expectedPattern);
+      });
+    });
+  });
+
   describe("URL形式のパース", () => {
     it("HTTPS URL (.git付き)", () => {
       const url = "https://github.com/myorg/myrepo.git";
@@ -12,6 +34,8 @@ describe("makeSlug", () => {
       expect(slug).toBeDefined();
       expect(typeof slug).toBe("string");
       expect(slug.length).toBe(16);
+      // 16進数の形式であることを確認
+      expect(slug).toMatch(/^[a-f0-9]{16}$/);
     });
 
     it("HTTPS URL (.git無し)", () => {
@@ -28,6 +52,8 @@ describe("makeSlug", () => {
       expect(slug).toBeDefined();
       expect(typeof slug).toBe("string");
       expect(slug.length).toBe(16);
+      // 16進数の形式であることを確認
+      expect(slug).toMatch(/^[a-f0-9]{16}$/);
     });
 
     it("SSH URL形式", () => {

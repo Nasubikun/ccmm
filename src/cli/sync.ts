@@ -10,9 +10,9 @@ import { homedir } from "node:os";
 import { readFile, writeFile, ensureDir, expandTilde, fileExists } from "../core/fs.js";
 import { makeSlug } from "../core/slug.js";
 import { getOriginUrl, isGitRepository, shallowFetch, batchFetch } from "../git/index.js";
-import { validateAndSetupProject } from "../core/project.js";
+import { validateAndSetupProject, generateProjectPaths } from "../core/project.js";
 import { Result, Ok, Err } from "../lib/result.js";
-import { isInitialized } from "./init.js";
+import { isInitialized, loadConfig, getDefaultPresetPointers } from "../core/config.js";
 import type { 
   ClaudeMdContent, 
   PresetImport, 
@@ -87,33 +87,6 @@ export function parseCLAUDEMd(content: string): Result<ClaudeMdContent, Error> {
   }
 }
 
-/**
- * プロジェクトのパス情報を生成する
- * 
- * @param projectRoot - プロジェクトのルートディレクトリ
- * @param originUrl - GitリポジトリのoriginURL  
- * @param commit - コミットハッシュまたはHEAD
- * @returns パス情報
- */
-export function generateProjectPaths(projectRoot: string, originUrl: string, commit: string): Result<ProjectPaths, Error> {
-  try {
-    const slug = makeSlug(originUrl);
-    const homeDir = homedir();
-    const ccmmHome = join(homeDir, '.ccmm');
-    
-    const paths: ProjectPaths = {
-      root: projectRoot,
-      claudeMd: join(projectRoot, 'CLAUDE.md'),
-      homePresetDir: join(ccmmHome, 'presets'),
-      projectDir: join(ccmmHome, 'projects', slug),
-      mergedPresetPath: join(ccmmHome, 'projects', slug, `merged-preset-${commit}.md`)
-    };
-    
-    return Ok(paths);
-  } catch (error) {
-    return Err(error instanceof Error ? error : new Error(String(error)));
-  }
-}
 
 /**
  * ローカルファイルシステムからプリセットファイルを取得する（file://用）
@@ -344,7 +317,7 @@ export async function updateClaudeMd(
  * @param options - 同期オプション
  * @returns 同期結果
  */
-export async function sync(options: SyncOptions = {}): Promise<Result<void, Error>> {
+export async function sync(options: SyncOptions = {}): Promise<Result<string, Error>> {
   try {
     // 0. ccmmが初期化されているか確認
     if (!isInitialized()) {
@@ -373,45 +346,13 @@ export async function sync(options: SyncOptions = {}): Promise<Result<void, Erro
     }
     
     // 6. プリセットを決定（config.jsonからデフォルトプリセットを読み取り）
-    const presetPointers: PresetPointer[] = [];
-    
-    // config.jsonからデフォルトプリセットを読み取り
-    try {
-      const { loadConfig } = await import("./init.js");
-      const configResult = loadConfig();
-      
-      if (configResult.success) {
-        const config = configResult.data;
-        
-        // デフォルトプリセットリポジトリとプリセットが設定されている場合
-        if (config.defaultPresetRepo && config.defaultPresets) {
-          const repoUrl = config.defaultPresetRepo;
-          
-          // file:// プロトコルの場合の特別処理
-          if (repoUrl.startsWith("file://")) {
-            const localPath = repoUrl.replace("file://", "");
-            
-            for (const presetFile of config.defaultPresets) {
-              presetPointers.push({
-                host: "localhost",
-                owner: "local",
-                repo: "presets",
-                file: presetFile,
-                commit: commit
-              });
-            }
-          } else {
-            // 通常のGitリポジトリの場合（将来の拡張用）
-            // TODO: GitリポジトリURLのパース実装
-          }
-        }
-      }
-    } catch (error) {
-      // config読み取りエラーは警告のみ（syncは続行）
+    const presetPointersResult = getDefaultPresetPointers(commit);
+    if (!presetPointersResult.success) {
       if (options.verbose) {
-        console.warn("Warning: Could not load preset config:", error);
+        console.warn("Warning: Could not load preset config:", presetPointersResult.error.message);
       }
     }
+    const presetPointers = presetPointersResult.success ? presetPointersResult.data : [];
     
     // 7. プリセットを取得
     let fetchResult: Result<PresetInfo[], Error>;
@@ -439,7 +380,7 @@ export async function sync(options: SyncOptions = {}): Promise<Result<void, Erro
       return Err(updateResult.error);
     }
     
-    return Ok(undefined);
+    return Ok("プリセットの同期が完了しました");
   } catch (error) {
     return Err(error instanceof Error ? error : new Error(String(error)));
   }

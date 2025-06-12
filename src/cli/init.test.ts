@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { init, isInitialized, loadConfig } from "./init.js";
+import { clearConfigCache } from "../core/config.js";
 import { expandTilde } from "../core/fs.js";
 import * as inquirer from "inquirer";
 
@@ -26,6 +27,7 @@ describe("init", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    clearConfigCache(); // 設定キャッシュをクリア
   });
 
   describe("init関数", () => {
@@ -38,7 +40,9 @@ describe("init", () => {
       const result = await init({ verbose: false });
 
       expect(result.success).toBe(true);
-      expect(result.message).toBe("ccmmの初期化が完了しました");
+      if (result.success) {
+        expect(result.data).toBe("ccmmの初期化が完了しました");
+      }
       
       // ディレクトリ作成の確認
       expect(mockFs.mkdirSync).toHaveBeenCalledWith(
@@ -69,7 +73,9 @@ describe("init", () => {
       const result = await init({ verbose: false });
 
       expect(result.success).toBe(true);
-      expect(result.message).toBe("初期化をキャンセルしました");
+      if (result.success) {
+        expect(result.data).toBe("初期化をキャンセルしました");
+      }
       expect(mockFs.mkdirSync).not.toHaveBeenCalled();
       expect(mockFs.writeFileSync).not.toHaveBeenCalled();
     });
@@ -84,7 +90,7 @@ describe("init", () => {
       expect(mockFs.mkdirSync).toHaveBeenCalled();
       expect(mockFs.writeFileSync).toHaveBeenCalledWith(
         "/home/user/.ccmm/config.json",
-        "{}",
+        expect.stringContaining('"version": "1.0.0"'),
         "utf-8"
       );
     });
@@ -131,8 +137,10 @@ describe("init", () => {
       const result = await init({ yes: true });
 
       expect(result.success).toBe(false);
-      expect(result.error).toBeInstanceOf(Error);
-      expect(result.error?.message).toBe("Permission denied");
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(Error);
+        expect(result.error.message).toBe("Permission denied");
+      }
     });
   });
 
@@ -159,8 +167,15 @@ describe("init", () => {
   });
 
   describe("loadConfig関数", () => {
+    beforeEach(() => {
+      clearConfigCache(); // 各テストで設定キャッシュをクリア
+    });
+
     it("設定ファイルが存在する場合、設定を読み込む", () => {
-      mockFs.existsSync.mockReturnValue(true);
+      // 特定のテスト用のモックを設定
+      mockFs.existsSync.mockImplementation((path: string) => {
+        return path.includes("config.json");
+      });
       mockFs.readFileSync.mockReturnValue(JSON.stringify({
         defaultPresetRepositories: ["github.com/myorg/CLAUDE-md"]
       }));
@@ -169,32 +184,41 @@ describe("init", () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data).toEqual({
-          defaultPresetRepositories: ["github.com/myorg/CLAUDE-md"]
-        });
+        expect(result.data).toEqual(expect.objectContaining({
+          defaultPresetRepositories: ["github.com/myorg/CLAUDE-md"],
+          version: "1.0.0"
+        }));
       }
     });
 
-    it("設定ファイルが存在しない場合、空のオブジェクトを返す", () => {
+    it("設定ファイルが存在しない場合、デフォルト設定を返す", () => {
+      // ファイル存在しない場合のモック
       mockFs.existsSync.mockReturnValue(false);
 
       const result = loadConfig();
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data).toEqual({});
+        expect(result.data).toEqual(expect.objectContaining({
+          version: "1.0.0",
+          defaultPresetRepositories: []
+        }));
       }
     });
 
     it("JSONパースエラーの場合、エラーを返す", () => {
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue("invalid json");
-
-      const result = loadConfig();
-
+      // 設定ファイルが存在することをモック
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      
+      // 不正なJSONを返すようにモック
+      vi.mocked(fs.readFileSync).mockReturnValue('{ invalid json content }');
+      
+      const result = loadConfig(false); // キャッシュを使わない
+      
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error).toBeInstanceOf(Error);
+        // JSONパースエラーのメッセージを期待（実際のエラーメッセージに合わせる）
+        expect(result.error.message).toMatch(/Expected property name|Unexpected token/);
       }
     });
   });

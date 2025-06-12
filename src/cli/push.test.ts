@@ -18,6 +18,7 @@ import {
   buildPresetPath,
   hasContentDiff
 } from '../core/preset.js';
+import { fileExists, readFile } from '../core/fs.js';
 import type { PresetPointer, PushOptions, EditOptions } from '../core/types/index.js';
 
 // モックの設定
@@ -243,11 +244,9 @@ describe('push機能', () => {
       if (result.success) {
         expect(result.data).toBe(expectedContent);
       }
-      // exec呼び出しの確認は一旦コメントアウト
-      // expect(mockExec).toHaveBeenCalledWith(
-      //   expect.stringContaining('mkdir -p'),
-      //   expect.any(Function)
-      // );
+      // exec呼び出しは複雑なモック設定が必要なため、基本的な機能確認に集中
+      // 実際のコマンド実行（mkdir -p）は統合テストで検証する
+      // expect(mockExec).toHaveBeenCalled(); // 一旦コメントアウト
       expect(mockShallowFetch).toHaveBeenCalled();
       expect(mockReadFile).toHaveBeenCalled();
     });
@@ -369,38 +368,47 @@ describe('push機能', () => {
       }
     });
 
-    it('ドライランモードの場合、実際の操作をスキップする', async () => {
-      const preset = 'react.md';
-      const options: PushOptions & EditOptions = { 
-        owner: 'myorg',
-        dryRun: true 
-      };
-
-      // ドライランオプションが正しく処理されることを確認
-      const result = await push(preset, options);
-
-      // push関数が実行されることを確認（詳細な成功/失敗は複雑なモック設定が必要）
-      expect(result).toBeDefined();
-      expect(typeof result.success).toBe('boolean');
-      
-      // ドライランモードでは実際の操作は行われないが、基本的なバリデーションは実行される
-    });
-
-    it('基本的なバリデーションが正しく動作する', async () => {
-      const preset = 'react.md';
+    it('ファイルが存在しない場合、エラーを返す', async () => {
+      const preset = 'nonexistent.md';
       const options: PushOptions & EditOptions = { 
         owner: 'myorg'
       };
 
-      // 基本的なバリデーションが実行されることを確認
+      // ファイルが存在しないことをモック
+      vi.mocked(fileExists).mockResolvedValue(false);
+      
       const result = await push(preset, options);
 
-      // push関数が実行されることを確認（詳細な成功/失敗は複雑なモック設定が必要）
-      expect(result).toBeDefined();
-      expect(typeof result.success).toBe('boolean');
-      
-      // 基本的なバリデーション（プリセット名、owner指定など）が正しく動作する
-      // 複雑なGit操作のモックは統合テストで検証する
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message).toContain('プリセットファイルが見つかりません');
+      }
+    });
+
+    it('プリセット名が空の場合、エラーを返す', async () => {
+      const preset = '';
+      const options: PushOptions & EditOptions = { 
+        owner: 'myorg'
+      };
+
+      const result = await push(preset, options);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message).toBe('プリセット名を指定してください');
+      }
+    });
+    
+    it('ownerオプションが指定されていない場合、エラーを返す', async () => {
+      const preset = 'react.md';
+      const options: PushOptions & EditOptions = {}; // ownerが未指定
+
+      const result = await push(preset, options);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message).toBe('--owner オプションでリポジトリオーナーを指定してください');
+      }
     });
   });
 });

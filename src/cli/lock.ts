@@ -14,11 +14,11 @@ import { getOriginUrl, isGitRepository } from "../git/index.js";
 import { validateAndSetupProject } from "../core/project.js";
 import { 
   parseCLAUDEMd, 
-  generateProjectPaths, 
   fetchPresets, 
   generateMerged, 
   updateClaudeMd 
 } from "./sync.js";
+import { generateProjectPaths } from "../core/project.js";
 import { Result, Ok, Err } from "../lib/result.js";
 import type { 
   LockOptions, 
@@ -231,7 +231,7 @@ export async function getCurrentPresets(
  * @param options - ロックオプション
  * @returns ロック結果
  */
-export async function lock(sha: string, options: LockOptions = { sha }): Promise<Result<void, Error>> {
+export async function lock(sha: string, options: LockOptions = { sha }): Promise<Result<string, Error>> {
   try {
     // 1-3. Git前処理とプロジェクトセットアップ
     const setupResult = await validateAndSetupProject(process.cwd(), sha);
@@ -278,7 +278,7 @@ export async function lock(sha: string, options: LockOptions = { sha }): Promise
       return Err(updateResult.error);
     }
     
-    return Ok(undefined);
+    return Ok(`プリセットが${sha}でロックされました`);
   } catch (error) {
     return Err(error instanceof Error ? error : new Error(String(error)));
   }
