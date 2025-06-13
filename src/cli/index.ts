@@ -47,6 +47,8 @@ program
   .option("-v, --verbose", "詳細ログを出力")
   .option("-y, --yes", "確認プロンプトをスキップ")
   .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
+  .option("-s, --skip-selection", "プリセット選択プロンプトをスキップして現在の設定を使用")
+  .option("-r, --reselect", "プロンプトなしで強制的にプリセットを再選択")
   .action(async (options: SyncOptions) => {
     await executeCommand("プリセット同期", sync, options);
   });

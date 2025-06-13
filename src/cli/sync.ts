@@ -255,12 +255,17 @@ export async function updateClaudeMd(
  */
 export async function sync(options: SyncOptions = {}): Promise<Result<string, Error>> {
   try {
-    // 0. ccmmが初期化されているか確認
+    // 0. オプションの検証
+    if (options.skipSelection && options.reselect) {
+      return Err(new Error("--skip-selection と --reselect オプションは同時に指定できません"));
+    }
+
+    // 1. ccmmが初期化されているか確認
     if (!isInitialized()) {
       return Err(new Error("ccmmが初期化されていません。先に 'ccmm init' を実行してください"));
     }
     
-    // 1-4. Git前処理とプロジェクトセットアップ
+    // 2. Git前処理とプロジェクトセットアップ
     const commit = options.commit || "HEAD";
     const setupResult = await validateAndSetupProject(process.cwd(), commit);
     if (!setupResult.success) {
@@ -268,7 +273,7 @@ export async function sync(options: SyncOptions = {}): Promise<Result<string, Er
     }
     const { paths, slug } = setupResult.data;
     
-    // 5. 既存のCLAUDE.mdを解析
+    // 3. 既存のCLAUDE.mdを解析
     let existingContent: ClaudeMdContent | undefined;
     const claudeMdExists = await fileExists(paths.claudeMd);
     if (claudeMdExists) {
@@ -281,7 +286,7 @@ export async function sync(options: SyncOptions = {}): Promise<Result<string, Er
       }
     }
     
-    // 6. プリセットを決定（プロジェクト別の設定から読み取り）
+    // 4. プリセットを決定（プロジェクト別の設定から読み取り）
     const presetPointersResult = getProjectPresetPointers(slug, commit);
     if (!presetPointersResult.success) {
       if (options.verbose) {
@@ -290,35 +295,104 @@ export async function sync(options: SyncOptions = {}): Promise<Result<string, Er
     }
     let presetPointers = presetPointersResult.success ? presetPointersResult.data : [];
 
-    // 6a. 初回実行時（プリセットポインタが空）の場合、インタラクティブ選択
+    // 5. プリセット選択の処理
     if (presetPointers.length === 0) {
+      // 初回実行時 - 必ずインタラクティブ選択
+      if (options.verbose) {
+        console.log("初回実行のため、プリセットファイルを選択します...");
+      }
       const interactiveResult = await runInteractivePresetSelection(slug, commit);
       if (!interactiveResult.success) {
         return interactiveResult;
       }
       presetPointers = interactiveResult.data;
+    } else {
+      // 既存設定がある場合の処理
+      if (options.reselect) {
+        // --reselect: 強制的に再選択
+        if (options.verbose) {
+          console.log("--reselect オプションが指定されたため、プリセットを再選択します...");
+        }
+        const interactiveResult = await runInteractivePresetSelection(slug, commit);
+        if (!interactiveResult.success) {
+          return interactiveResult;
+        }
+        presetPointers = interactiveResult.data;
+      } else if (options.skipSelection) {
+        // --skip-selection: 現在の設定をそのまま使用
+        if (options.verbose) {
+          console.log("--skip-selection オプションが指定されたため、現在の設定を使用します");
+        }
+      } else {
+        // デフォルト: プロンプトで確認
+        const promptResult = await promptForReselection(presetPointers);
+        if (!promptResult.success) {
+          return Err(promptResult.error);
+        }
+        
+        if (promptResult.data) {
+          // ユーザーが再選択を希望
+          const interactiveResult = await runInteractivePresetSelection(slug, commit);
+          if (!interactiveResult.success) {
+            return interactiveResult;
+          }
+          presetPointers = interactiveResult.data;
+        } else {
+          // 現在の設定を維持
+          if (options.verbose) {
+            console.log("現在のプリセット設定を維持します");
+          }
+        }
+      }
     }
     
-    // 7. プリセットを取得
+    // 6. プリセットを取得
     const fetchResult = await fetchPresets(presetPointers, paths.homePresetDir);
     
     if (!fetchResult.success) {
       return Err(fetchResult.error);
     }
     
-    // 8. マージプリセットを生成
+    // 7. マージプリセットを生成
     const generateResult = await generateMerged(fetchResult.data, paths.mergedPresetPath, commit);
     if (!generateResult.success) {
       return Err(generateResult.error);
     }
     
-    // 9. CLAUDE.mdを更新
+    // 8. CLAUDE.mdを更新
     const updateResult = await updateClaudeMd(paths.claudeMd, paths.mergedPresetPath, existingContent);
     if (!updateResult.success) {
       return Err(updateResult.error);
     }
     
     return Ok("プリセットの同期が完了しました");
+  } catch (error) {
+    return Err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+/**
+ * 現在のプリセット設定を表示して再選択するかプロンプトで確認する
+ * 
+ * @param presetPointers - 現在のプリセットポインタのリスト
+ * @returns 再選択するかどうかの結果
+ */
+async function promptForReselection(presetPointers: PresetPointer[]): Promise<Result<boolean, Error>> {
+  try {
+    console.log("\n現在のプリセット設定:");
+    presetPointers.forEach((pointer, index) => {
+      console.log(`  ${index + 1}. ${pointer.file} (${pointer.owner}/${pointer.repo}@${pointer.commit})`);
+    });
+    console.log("");
+
+    const { shouldReselect } = await inquirer.prompt({
+      type: 'confirm',
+      name: 'shouldReselect',
+      message: 'プリセット設定を変更しますか？',
+      default: false
+    });
+
+    return Ok(shouldReselect);
   } catch (error) {
     return Err(error instanceof Error ? error : new Error(String(error)));
   }

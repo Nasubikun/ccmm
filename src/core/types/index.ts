@@ -134,6 +134,10 @@ export interface CliOptions {
 export interface SyncOptions extends CliOptions {
   /** 特定のコミットハッシュを使用 */
   commit?: string;
+  /** プリセット選択プロンプトをスキップして現在の設定を使用 */
+  skipSelection?: boolean;
+  /** プロンプトなしで強制的にプリセットを再選択 */
+  reselect?: boolean;
 }
 
 /**
