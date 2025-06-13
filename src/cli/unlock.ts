@@ -8,11 +8,10 @@
 import { readFile, fileExists } from "../core/fs.js";
 import { getOriginUrl, isGitRepository } from "../git/index.js";
 import { validateAndSetupProject } from "../core/project.js";
-import { getDefaultPresetPointers } from "../core/config.js";
+import { getProjectPresetPointers } from "../core/config.js";
 import { 
   parseCLAUDEMd, 
   fetchPresets, 
-  fetchLocalPresets,
   generateMerged, 
   updateClaudeMd 
 } from "./sync.js";
@@ -86,21 +85,23 @@ export async function detectLockState(
  * ロックされた状態から元のプリセット設定を復元する
  * 
  * @param paths - プロジェクトのパス情報
+ * @param slug - プロジェクトのスラッグ
  * @param lockedSha - ロックされているSHA（オプション）
  * @returns 復元されたプリセット情報
  */
 export async function restorePresetConfiguration(
   paths: ProjectPaths, 
+  slug: string,
   lockedSha?: string
 ): Promise<Result<PresetPointer[], Error>> {
   try {
-    // プリセット設定をconfig.jsonから復元
-    const presetPointersResult = getDefaultPresetPointers("HEAD");
+    // プリセット設定をプロジェクト別設定から復元
+    const presetPointersResult = getProjectPresetPointers(slug, "HEAD");
     if (presetPointersResult.success) {
       return presetPointersResult;
     }
     
-    // configが無い場合は空のプリセットリストを返す
+    // プロジェクト設定が無い場合は空のプリセットリストを返す
     return Ok([]);
   } catch (error) {
     return Err(error instanceof Error ? error : new Error(String(error)));
@@ -126,13 +127,7 @@ export async function regenerateHeadMerged(
     };
     
     // 1. プリセットを取得（最新版）
-    let fetchResult: Result<PresetInfo[], Error>;
-    
-    if (presetPointers.length > 0 && presetPointers[0]?.host === "localhost") {
-      fetchResult = await fetchLocalPresets(presetPointers, paths.homePresetDir);
-    } else {
-      fetchResult = await fetchPresets(presetPointers, paths.homePresetDir);
-    }
+    const fetchResult = await fetchPresets(presetPointers, paths.homePresetDir);
     
     if (!fetchResult.success) {
       return Err(fetchResult.error);
@@ -167,7 +162,7 @@ export async function unlock(options: CliOptions = {}): Promise<Result<string, E
     if (!setupResult.success) {
       return setupResult;
     }
-    const { paths } = setupResult.data;
+    const { paths, slug } = setupResult.data;
     
     // 4. 現在のロック状態を検出
     const lockStateResult = await detectLockState(paths.claudeMd, paths);
@@ -182,7 +177,7 @@ export async function unlock(options: CliOptions = {}): Promise<Result<string, E
     }
     
     // 6. プリセット設定を復元
-    const restoreResult = await restorePresetConfiguration(paths, lockState.currentSha);
+    const restoreResult = await restorePresetConfiguration(paths, slug, lockState.currentSha);
     if (!restoreResult.success) {
       return Err(restoreResult.error);
     }

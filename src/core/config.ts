@@ -16,10 +16,6 @@ import { Result, Ok, Err } from "../lib/result.js";
 export interface CcmmConfig {
   /** デフォルトプリセットリポジトリのURL一覧 */
   defaultPresetRepositories?: string[];
-  /** メインのプリセットリポジトリ */
-  defaultPresetRepo?: string;
-  /** デフォルトで使用するプリセットファイル一覧 */
-  defaultPresets?: string[];
   /** 設定のバージョン（将来の互換性のため） */
   version?: string;
 }
@@ -36,8 +32,7 @@ const CACHE_DURATION = 5000; // 5秒
  */
 const DEFAULT_CONFIG: CcmmConfig = {
   version: "1.0.0",
-  defaultPresetRepositories: [],
-  defaultPresets: []
+  defaultPresetRepositories: []
 };
 
 /**
@@ -181,41 +176,101 @@ export function clearConfigCache(): void {
 }
 
 /**
- * デフォルトプリセットポインタを取得する
+ * プロジェクト別設定の型定義
+ */
+export interface ProjectConfig {
+  /** 選択されたプリセット一覧 */
+  selectedPresets: {
+    /** リポジトリURL */
+    repo: string;
+    /** ファイルパス */
+    file: string;
+  }[];
+  /** 最終更新日時 */
+  lastUpdated: string;
+}
+
+/**
+ * プロジェクト別のプリセット選択情報を取得する
  * 
+ * @param projectSlug - プロジェクトのスラッグ
  * @param commit - コミットハッシュ（デフォルト: "HEAD"）
  * @returns プリセットポインタの配列
  */
-export function getDefaultPresetPointers(commit: string = "HEAD"): Result<import("./types/index.js").PresetPointer[], Error> {
-  const configResult = loadConfig();
-  if (!configResult.success) {
-    return configResult;
-  }
-  
-  const config = configResult.data;
-  const presetPointers: import("./types/index.js").PresetPointer[] = [];
-  
-  if (config.defaultPresetRepo && config.defaultPresets) {
-    const repoUrl = config.defaultPresetRepo;
+export function getProjectPresetPointers(projectSlug: string, commit: string = "HEAD"): Result<import("./types/index.js").PresetPointer[], Error> {
+  try {
+    // プロジェクト別の設定ファイルパスを生成
+    const projectDir = expandTilde(`~/.ccmm/projects/${projectSlug}`);
+    const projectConfigPath = path.join(projectDir, "preset-selection.json");
     
-    // file:// プロトコルの場合の特別処理
-    if (repoUrl.startsWith("file://")) {
-      for (const presetFile of config.defaultPresets) {
-        presetPointers.push({
-          host: "localhost",
-          owner: "local",
-          repo: "presets",
-          file: presetFile,
-          commit: commit
-        });
-      }
-    } else {
-      // 通常のGitリポジトリの場合（将来の拡張用）
-      // TODO: GitリポジトリURLのパース実装
+    // プロジェクト設定ファイルが存在しない場合は空配列を返す
+    if (!fs.existsSync(projectConfigPath)) {
+      return Ok([]);
     }
+    
+    // プロジェクト設定を読み込み
+    const content = fs.readFileSync(projectConfigPath, "utf-8");
+    const projectConfig: ProjectConfig = JSON.parse(content);
+    
+    const presetPointers: import("./types/index.js").PresetPointer[] = [];
+    
+    // 選択されたプリセットファイルをPresetPointerに変換
+    if (projectConfig.selectedPresets && Array.isArray(projectConfig.selectedPresets)) {
+      for (const preset of projectConfig.selectedPresets) {
+        if (preset.repo && preset.file) {
+          // GitHub URLをパース
+          const urlParts = preset.repo.replace(/^https?:\/\//, '').split('/');
+          if (urlParts.length >= 3 && urlParts[0] === 'github.com') {
+            presetPointers.push({
+              host: urlParts[0]!,
+              owner: urlParts[1]!,
+              repo: urlParts[2]!,
+              file: preset.file,
+              commit: commit
+            });
+          }
+        }
+      }
+    }
+    
+    return Ok(presetPointers);
+  } catch (error) {
+    return Err(error instanceof Error ? error : new Error(String(error)));
   }
-  
-  return Ok(presetPointers);
+}
+
+/**
+ * プロジェクト別のプリセット選択情報を保存する
+ * 
+ * @param projectSlug - プロジェクトのスラッグ
+ * @param selectedPresets - 選択されたプリセット一覧
+ * @returns 保存結果
+ */
+export async function saveProjectPresetSelection(
+  projectSlug: string, 
+  selectedPresets: { repo: string; file: string }[]
+): Promise<Result<void, Error>> {
+  try {
+    // プロジェクト別のディレクトリを作成
+    const projectDir = expandTilde(`~/.ccmm/projects/${projectSlug}`);
+    if (!fs.existsSync(projectDir)) {
+      fs.mkdirSync(projectDir, { recursive: true });
+    }
+    
+    // プロジェクト設定を作成
+    const projectConfig: ProjectConfig = {
+      selectedPresets,
+      lastUpdated: new Date().toISOString()
+    };
+    
+    // ファイルに保存
+    const projectConfigPath = path.join(projectDir, "preset-selection.json");
+    fs.writeFileSync(projectConfigPath, JSON.stringify(projectConfig, null, 2), "utf-8");
+    
+    return Ok(undefined);
+  } catch (error) {
+    return Err(error instanceof Error ? error : new Error(String(error)));
+  }
 }
 
 /**
@@ -232,16 +287,11 @@ export function validateConfig(config: CcmmConfig): Result<void, Error> {
       console.warn(`設定ファイルのバージョンが異なります: ${config.version} (期待値: ${DEFAULT_CONFIG.version})`);
     }
     
-    // デフォルトプリセットの妥当性チェック
-    if (config.defaultPresets && config.defaultPresets.length > 0) {
-      if (!config.defaultPresetRepo) {
-        return Err(new Error("defaultPresetsが設定されていますが、defaultPresetRepoが設定されていません"));
-      }
-      
-      // プリセットファイル名の妥当性チェック
-      for (const preset of config.defaultPresets) {
-        if (!preset.endsWith('.md')) {
-          return Err(new Error(`プリセットファイル名は.mdで終わる必要があります: ${preset}`));
+    // プリセットリポジトリURLの妥当性チェック
+    if (config.defaultPresetRepositories && config.defaultPresetRepositories.length > 0) {
+      for (const repoUrl of config.defaultPresetRepositories) {
+        if (!repoUrl.includes('github.com/')) {
+          return Err(new Error(`現在はGitHubリポジトリのみサポートしています: ${repoUrl}`));
         }
       }
     }

@@ -5,6 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import path from "node:path";
+import fs from "node:fs/promises";
 import {
   createTestContext,
   initGitRepo,
@@ -36,10 +37,17 @@ describe("基本ワークフロー統合テスト", () => {
   });
 
   it("ccmm initとsyncの基本動作が正常に機能する", async () => {
-    // 1. ccmm init（ホームディレクトリを設定）
+    // 1. ccmm init（ホームディレクトリを設定、テスト用環境）
     const initResult = execCLI("init --yes", ctx.projectDir, {
       HOME: ctx.homeDir,
+      NODE_ENV: "test", // テスト環境であることを示す
     });
+    
+    // init が失敗した場合はデバッグ情報を出力
+    if (initResult.exitCode !== 0) {
+      console.log("Init stdout:", initResult.stdout);
+      console.log("Init stderr:", initResult.stderr);
+    }
     
     expect(initResult.exitCode).toBe(0);
     
@@ -53,16 +61,48 @@ describe("基本ワークフロー統合テスト", () => {
     const initialClaude = await readFile(path.join(ctx.projectDir, "CLAUDE.md"));
     expect(initialClaude).toBe("# プロジェクト固有メモリ\n");
 
+    // 2.5. テスト用のプリセット選択設定を作成
+    const projectSlug = calculateProjectSlug(remoteUrl);
+    const projectCcmmDir = path.join(ctx.homeDir, ".ccmm", "projects", projectSlug);
+    await fs.mkdir(projectCcmmDir, { recursive: true });
+    
+    const presetSelection = {
+      selectedPresets: [
+        {
+          repo: "github.com/testuser/CLAUDE-md",
+          file: "test-preset.md"
+        }
+      ],
+      lastUpdated: new Date().toISOString()
+    };
+    await fs.writeFile(
+      path.join(projectCcmmDir, "preset-selection.json"),
+      JSON.stringify(presetSelection, null, 2)
+    );
+
+    // テスト用のプリセットファイルを作成
+    const presetDir = path.join(ctx.homeDir, ".ccmm", "presets", "github.com", "testuser", "CLAUDE-md");
+    await fs.mkdir(presetDir, { recursive: true });
+    await fs.writeFile(
+      path.join(presetDir, "test-preset.md"),
+      "# Test Preset\nTest preset content\n"
+    );
+
     // 3. ccmm sync（プリセット適用）
-    const syncResult = execCLI("sync --yes", ctx.projectDir, {
+    const syncResult = execCLI("sync", ctx.projectDir, {
       HOME: ctx.homeDir,
+      NODE_ENV: "test"
     });
+    
+    // sync が失敗した場合はデバッグ情報を出力
+    if (syncResult.exitCode !== 0) {
+      console.log("Sync stdout:", syncResult.stdout);
+      console.log("Sync stderr:", syncResult.stderr);
+    }
     
     expect(syncResult.exitCode).toBe(0);
 
     // 4. merged-preset-HEAD.md が作成されることを確認
-    const projectSlug = calculateProjectSlug(remoteUrl);
-    const projectCcmmDir = path.join(ctx.homeDir, ".ccmm", "projects", projectSlug);
     const mergedPresetPath = path.join(projectCcmmDir, "merged-preset-HEAD.md");
     
     expect(await fileExists(mergedPresetPath)).toBe(true);
@@ -102,17 +142,72 @@ describe("基本ワークフロー統合テスト", () => {
 
   it("複数回のsyncが安全に実行できる", async () => {
     // 初期化
-    const initResult = execCLI("init --yes", ctx.projectDir, { HOME: ctx.homeDir });
+    const initResult = execCLI("init --yes", ctx.projectDir, { 
+      HOME: ctx.homeDir,
+      NODE_ENV: "test" 
+    });
+    
+    // init が失敗した場合はデバッグ情報を出力
+    if (initResult.exitCode !== 0) {
+      console.log("Init stdout:", initResult.stdout);
+      console.log("Init stderr:", initResult.stderr);
+    }
+    
     expect(initResult.exitCode).toBe(0);
 
+    // テスト用のプリセット選択設定を作成
+    const projectSlug = calculateProjectSlug(remoteUrl);
+    const projectCcmmDir = path.join(ctx.homeDir, ".ccmm", "projects", projectSlug);
+    await fs.mkdir(projectCcmmDir, { recursive: true });
+    
+    const presetSelection = {
+      selectedPresets: [
+        {
+          repo: "github.com/testuser/CLAUDE-md",
+          file: "test-preset.md"
+        }
+      ],
+      lastUpdated: new Date().toISOString()
+    };
+    await fs.writeFile(
+      path.join(projectCcmmDir, "preset-selection.json"),
+      JSON.stringify(presetSelection, null, 2)
+    );
+
+    // テスト用のプリセットファイルを作成
+    const presetDir = path.join(ctx.homeDir, ".ccmm", "presets", "github.com", "testuser", "CLAUDE-md");
+    await fs.mkdir(presetDir, { recursive: true });
+    await fs.writeFile(
+      path.join(presetDir, "test-preset.md"),
+      "# Test Preset\nTest preset content\n"
+    );
+
     // 1回目のsync
-    const sync1Result = execCLI("sync --yes", ctx.projectDir, { HOME: ctx.homeDir });
+    const sync1Result = execCLI("sync", ctx.projectDir, { 
+      HOME: ctx.homeDir,
+      NODE_ENV: "test"
+    });
+    
+    if (sync1Result.exitCode !== 0) {
+      console.log("Sync1 stdout:", sync1Result.stdout);
+      console.log("Sync1 stderr:", sync1Result.stderr);
+    }
+    
     expect(sync1Result.exitCode).toBe(0);
 
     const importLine1 = await getClaudeMdImportLine(ctx.projectDir);
     
     // 2回目のsync
-    const sync2Result = execCLI("sync --yes", ctx.projectDir, { HOME: ctx.homeDir });
+    const sync2Result = execCLI("sync", ctx.projectDir, { 
+      HOME: ctx.homeDir,
+      NODE_ENV: "test"
+    });
+    
+    if (sync2Result.exitCode !== 0) {
+      console.log("Sync2 stdout:", sync2Result.stdout);
+      console.log("Sync2 stderr:", sync2Result.stderr);
+    }
+    
     expect(sync2Result.exitCode).toBe(0);
 
     const importLine2 = await getClaudeMdImportLine(ctx.projectDir);

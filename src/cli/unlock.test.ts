@@ -354,7 +354,6 @@ describe('unlock機能', () => {
       vi.mocked(project.validateAndSetupProject).mockImplementation(mockValidateAndSetupProject);
       vi.mocked(sync.parseCLAUDEMd).mockImplementation(mockParseCLAUDEMd);
       vi.mocked(sync.fetchPresets).mockImplementation(mockFetchPresets);
-      vi.mocked(sync.fetchLocalPresets).mockImplementation(mockFetchLocalPresets);
       vi.mocked(sync.generateMerged).mockImplementation(mockGenerateMerged);
       vi.mocked(sync.updateClaudeMd).mockImplementation(mockUpdateClaudeMd);
       vi.mocked(fs.fileExists).mockImplementation(mockFileExists);

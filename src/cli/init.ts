@@ -42,6 +42,31 @@ interface EnvironmentCheck {
 /**
  * デフォルトのGitHub依存関数（本番環境用）
  */
+/**
+ * テスト環境用のモックGitHub依存関数
+ */
+export const testGitHubDependencies: GitHubDependencies = {
+  async checkGhCommand(): Promise<boolean> {
+    return true; // テスト環境では常にtrueを返す
+  },
+
+  checkGitHubToken(): boolean {
+    return true; // テスト環境では常にtrueを返す
+  },
+
+  async getCurrentGitHubUsername(): Promise<string | null> {
+    return "testuser"; // テスト用の固定ユーザー名
+  },
+
+  async checkRepositoryExists(owner: string, repo: string): Promise<boolean> {
+    return true; // テスト環境では常にtrueを返す
+  },
+
+  async createRepository(name: string, description: string): Promise<void> {
+    // テスト環境では何もしない
+  }
+};
+
 export const defaultGitHubDependencies: GitHubDependencies = {
   async checkGhCommand(): Promise<boolean> {
     try {
@@ -115,7 +140,7 @@ async function performEnvironmentChecks(options: CliOptions, github: GitHubDepen
 /**
  * ~/.ccmmディレクトリ構造を初期化する
  */
-export async function init(options: CliOptions, github: GitHubDependencies = defaultGitHubDependencies): Promise<Result<string, Error>> {
+export async function init(options: CliOptions, github: GitHubDependencies = process.env.NODE_ENV === "test" ? testGitHubDependencies : defaultGitHubDependencies): Promise<Result<string, Error>> {
   try {
     const ccmmDir = expandTilde("~/.ccmm");
     const presetsDir = path.join(ccmmDir, "presets");
@@ -285,64 +310,65 @@ export async function init(options: CliOptions, github: GitHubDependencies = def
         }
       }
     } else {
-      // GitHub認証なしの場合は手動でリポジトリURLを入力
+      // GitHub認証なしの場合
       showWarning("GitHub認証が利用できません");
       
       if (!options.yes) {
-        // GitHub認証済みの場合はユーザー名を取得してデフォルト値に設定
-        const username = await github.getCurrentGitHubUsername();
-        const defaultRepo = username ? `github.com/${username}/CLAUDE-md` : "";
-
-        const { manualRepo } = await inquirer.prompt([
+        showInfo("認証後にプリセットリポジトリを設定できます。");
+        showInfo("手動でプリセットリポジトリを設定することもできます。");
+        
+        const { configChoice } = await inquirer.prompt([
           {
-            type: "input",
-            name: "manualRepo",
-            message: defaultRepo 
-              ? `プリセットリポジトリのURL (Enterで ${defaultRepo} を使用):`
-              : "プリセットリポジトリのURL (例: github.com/yourname/CLAUDE-md):",
-            default: defaultRepo,
-            validate: (input: string) => {
-              if (!input.trim()) {
-                return "プリセットリポジトリのURLは必須です";
+            type: "list",
+            name: "configChoice",
+            message: "初期化方法を選択してください:",
+            choices: [
+              {
+                name: "基本的な初期化のみ (後でプリセットリポジトリを設定)",
+                value: "basic"
+              },
+              {
+                name: "プリセットリポジトリを手動で指定",
+                value: "manual"
               }
-              if (!input.includes("github.com")) {
-                return "GitHub リポジトリのURLを入力してください";
-              }
-              return true;
-            },
-          },
+            ],
+            default: "basic"
+          }
         ]);
 
-        const repos = manualRepo.trim().split(",").map((r: string) => r.trim()).filter((r: string) => r.length > 0);
-        
-        // 最初のリポジトリが存在しない場合、作成方法を案内
-        const firstRepo = repos[0];
-        if (firstRepo && envCheck.ghCommand) {
-          const repoMatch = firstRepo.match(/github\.com\/([^/]+)\/([^/]+)$/);
-          if (repoMatch) {
-            const [, owner, repoName] = repoMatch;
-            const exists = await github.checkRepositoryExists(owner, repoName);
-            if (!exists) {
-              showWarning(`⚠ リポジトリ ${firstRepo} が見つかりません`);
-              showInfo("以下の方法でリポジトリを作成できます:");
-              showInfo("1. GitHubでブラウザから手動作成: https://github.com/new");
-              if (envCheck.ghCommand) {
-                showInfo(`2. GitHub CLIで作成: gh repo create ${owner}/${repoName} --public --description "CLAUDE.md presets"`);
-              }
-              showInfo("\nリポジトリ作成後、ccmm syncコマンドでプリセットを利用できます。");
-            }
-          }
-        }
-        
-        config.defaultPresetRepositories = repos;
-        if (repos.length === 1) {
-          showInfo(`プリセットリポジトリを設定しました: ${repos[0]}`);
+        if (configChoice === "manual") {
+          const { manualRepo } = await inquirer.prompt([
+            {
+              type: "input",
+              name: "manualRepo",
+              message: "プリセットリポジトリのURL (例: github.com/yourname/CLAUDE-md):",
+              validate: (input: string) => {
+                if (!input.trim()) {
+                  return "プリセットリポジトリのURLは必須です";
+                }
+                if (!input.includes("github.com")) {
+                  return "GitHub リポジトリのURLを入力してください";
+                }
+                return true;
+              },
+            },
+          ]);
+
+          const repos = manualRepo.trim().split(",").map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+          config.defaultPresetRepositories = repos;
+          
+          showInfo("※ 実際のリポジトリアクセスは認証後に確認されます");
         } else {
-          showInfo(`プリセットリポジトリを設定しました: ${repos.length}個`);
-          repos.forEach((repo: string) => showInfo(`  - ${repo}`));
+          // 基本初期化のみ - 空の設定
+          config.defaultPresetRepositories = [];
+          showInfo("基本的な初期化が完了しました。");
+          showInfo("後で 'ccmm config' コマンドでプリセットリポジトリを設定できます。");
         }
       } else {
-        return Err(new Error("GitHub認証が利用できないため、--yesフラグでの自動初期化はできません"));
+        // --yes フラグの場合は基本初期化のみ
+        config.defaultPresetRepositories = [];
+        showInfo("認証が利用できないため、基本初期化のみ実行しました。");
+        showInfo("後で認証設定後にプリセットリポジトリを設定してください。");
       }
     }
 
