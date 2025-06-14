@@ -231,9 +231,11 @@ describe("init", () => {
         checkGitHubToken: vi.fn().mockReturnValue(false)
       });
       
-      mockInquirer.prompt.mockResolvedValue({
-        manualRepo: " github.com/repo1/preset , github.com/repo2/preset , github.com/repo3/preset "
-      });
+      mockInquirer.prompt
+        .mockResolvedValueOnce({ configChoice: "manual" })
+        .mockResolvedValueOnce({
+          manualRepo: " github.com/repo1/preset , github.com/repo2/preset , github.com/repo3/preset "
+        });
       
       const result = await init({ verbose: false }, github);
       
@@ -264,7 +266,8 @@ describe("init", () => {
       }
     });
 
-    it("GitHub認証なしで--yesオプションは失敗", async () => {
+    it("GitHub認証なしで--yesオプションは基本初期化で成功", async () => {
+      const mockSaveConfig = vi.mocked((await import("../core/config.js")).saveConfig);
       const github = createMockGitHubDependencies({
         checkGhCommand: vi.fn().mockResolvedValue(false),
         checkGitHubToken: vi.fn().mockReturnValue(false)
@@ -272,10 +275,12 @@ describe("init", () => {
       
       const result = await init({ yes: true }, github);
       
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.message).toContain("GitHub認証が利用できないため");
-      }
+      expect(result.success).toBe(true);
+      expect(mockSaveConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          defaultPresetRepositories: []
+        })
+      );
     });
 
     it("リポジトリ作成失敗時は適切なエラーメッセージ", async () => {

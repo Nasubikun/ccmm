@@ -44,13 +44,13 @@ describe("Sync機能デバッグ", () => {
     // 設定ファイルを作成
     const configPath = path.join(ctx.homeDir, ".ccmm", "config.json");
     const config = {
-      defaultPresetRepo: `file://${ctx.presetDir}`,
+      defaultPresetRepositories: [`file://${ctx.presetDir}`],
       defaultPresets: ["react.md", "typescript.md"]
     };
     await require("node:fs/promises").writeFile(configPath, JSON.stringify(config, null, 2));
 
     console.log("🔍 Config設定:");
-    console.log("- defaultPresetRepo:", config.defaultPresetRepo);
+    console.log("- defaultPresetRepo:", config.defaultPresetRepositories);
     console.log("- defaultPresets:", config.defaultPresets);
 
     // syncを実行

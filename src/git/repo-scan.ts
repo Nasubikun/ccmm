@@ -7,6 +7,8 @@
 
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
+import { readdir, stat } from "node:fs/promises";
+import { join, extname, relative } from "node:path";
 import { Result, Ok, Err } from "../lib/result.js";
 
 const execPromise = promisify(exec);
@@ -61,6 +63,11 @@ export function parseGitHubRepoUrl(repoUrl: string): Result<{owner: string, repo
  */
 export async function scanPresetFiles(repoUrl: string): Promise<Result<PresetFileInfo[], Error>> {
   try {
+    // file:// URLの場合はローカルファイルシステムをスキャン
+    if (repoUrl.startsWith('file://')) {
+      return await scanLocalPresetFiles(repoUrl);
+    }
+    
     const parseResult = parseGitHubRepoUrl(repoUrl);
     if (!parseResult.success) {
       return parseResult;
@@ -183,6 +190,56 @@ async function tryGetFilesWithApi(owner: string, repo: string): Promise<Result<P
         size: item.size || 0,
         sha: item.sha
       }));
+    
+    return Ok(mdFiles);
+  } catch (error) {
+    return Err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+/**
+ * ローカルディレクトリから.mdファイル一覧を取得する（テスト用）
+ * 
+ * @param fileUrl - file:// URL
+ * @returns プリセットファイル一覧
+ */
+async function scanLocalPresetFiles(fileUrl: string): Promise<Result<PresetFileInfo[], Error>> {
+  try {
+    // file:// URLからパスを抽出
+    const localPath = fileUrl.replace(/^file:\/\//, '');
+    
+    const mdFiles: PresetFileInfo[] = [];
+    
+    // 再帰的にディレクトリをスキャン
+    async function scanDirectory(dirPath: string, relativePath: string = ''): Promise<void> {
+      try {
+        const entries = await readdir(dirPath);
+        
+        for (const entry of entries) {
+          const fullPath = join(dirPath, entry);
+          const entryRelativePath = relativePath ? join(relativePath, entry) : entry;
+          
+          const stats = await stat(fullPath);
+          
+          if (stats.isDirectory()) {
+            // ディレクトリの場合は再帰的にスキャン
+            await scanDirectory(fullPath, entryRelativePath);
+          } else if (stats.isFile() && extname(entry) === '.md') {
+            // .mdファイルの場合は一覧に追加
+            mdFiles.push({
+              name: entry,
+              path: entryRelativePath,
+              size: stats.size,
+              sha: 'local-' + Date.now() // ローカルファイル用のダミーSHA
+            });
+          }
+        }
+      } catch (error) {
+        // ディレクトリアクセスエラーは無視して続行
+      }
+    }
+    
+    await scanDirectory(localPath);
     
     return Ok(mdFiles);
   } catch (error) {

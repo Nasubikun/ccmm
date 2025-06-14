@@ -301,7 +301,7 @@ export async function sync(options: SyncOptions = {}): Promise<Result<string, Er
       if (options.verbose) {
         console.log("初回実行のため、プリセットファイルを選択します...");
       }
-      const interactiveResult = await runInteractivePresetSelection(slug, commit);
+      const interactiveResult = await runInteractivePresetSelection(slug, commit, options);
       if (!interactiveResult.success) {
         return interactiveResult;
       }
@@ -313,7 +313,7 @@ export async function sync(options: SyncOptions = {}): Promise<Result<string, Er
         if (options.verbose) {
           console.log("--reselect オプションが指定されたため、プリセットを再選択します...");
         }
-        const interactiveResult = await runInteractivePresetSelection(slug, commit);
+        const interactiveResult = await runInteractivePresetSelection(slug, commit, options);
         if (!interactiveResult.success) {
           return interactiveResult;
         }
@@ -332,7 +332,7 @@ export async function sync(options: SyncOptions = {}): Promise<Result<string, Er
         
         if (promptResult.data) {
           // ユーザーが再選択を希望
-          const interactiveResult = await runInteractivePresetSelection(slug, commit);
+          const interactiveResult = await runInteractivePresetSelection(slug, commit, options);
           if (!interactiveResult.success) {
             return interactiveResult;
           }
@@ -407,7 +407,8 @@ async function promptForReselection(presetPointers: PresetPointer[]): Promise<Re
  */
 async function runInteractivePresetSelection(
   projectSlug: string, 
-  commit: string
+  commit: string,
+  options: SyncOptions = {}
 ): Promise<Result<PresetPointer[], Error>> {
   try {
     console.log("初回実行です。使用するプリセットファイルを選択してください。");
@@ -475,29 +476,54 @@ async function runInteractivePresetSelection(
       }
     }
     
-    // inquirer でマルチセレクト UI を表示
-    const choices = allPresetFiles.map(preset => ({
-      name: `${preset.file} (${preset.repo})`,
-      value: { repo: preset.repo, file: preset.file },
-      checked: false
-    }));
+    let selectedPresets: Array<{repo: string, file: string}>;
     
-    const answers = await inquirer.prompt([
-      {
-        type: 'checkbox',
-        name: 'selectedPresets',
-        message: '使用するプリセットファイルを選択してください:',
-        choices,
-        validate: (input) => {
-          if (input.length === 0) {
-            return '少なくとも1つのプリセットファイルを選択してください';
-          }
-          return true;
+    // --yes フラグまたは自動選択の場合
+    if (options.yes || options.skipSelection) {
+      if (config.defaultPresets && config.defaultPresets.length > 0) {
+        // defaultPresetsから自動選択
+        selectedPresets = allPresetFiles
+          .filter(preset => config.defaultPresets?.includes(preset.file))
+          .map(preset => ({ repo: preset.repo, file: preset.file }));
+        
+        if (selectedPresets.length === 0) {
+          return Err(new Error(
+            `デフォルトプリセット (${config.defaultPresets.join(', ')}) が見つかりませんでした。\n` +
+            `利用可能なプリセット: ${allPresetFiles.map(p => p.file).join(', ')}`
+          ));
         }
+        
+        console.log(`✅ デフォルトプリセットを自動選択: ${selectedPresets.map(p => p.file).join(', ')}`);
+      } else {
+        // defaultPresetsが設定されていない場合は全て選択
+        selectedPresets = allPresetFiles.map(preset => ({ repo: preset.repo, file: preset.file }));
+        console.log(`✅ 利用可能なプリセットをすべて選択: ${selectedPresets.map(p => p.file).join(', ')}`);
       }
-    ]);
-    
-    const selectedPresets = answers.selectedPresets as Array<{repo: string, file: string}>;
+    } else {
+      // インタラクティブモード
+      const choices = allPresetFiles.map(preset => ({
+        name: `${preset.file} (${preset.repo})`,
+        value: { repo: preset.repo, file: preset.file },
+        checked: config.defaultPresets ? config.defaultPresets.includes(preset.file) : false
+      }));
+      
+      const answers = await inquirer.prompt([
+        {
+          type: 'checkbox',
+          name: 'selectedPresets',
+          message: '使用するプリセットファイルを選択してください:',
+          choices,
+          validate: (input) => {
+            if (input.length === 0) {
+              return '少なくとも1つのプリセットファイルを選択してください';
+            }
+            return true;
+          }
+        }
+      ]);
+      
+      selectedPresets = answers.selectedPresets;
+    }
     
     // 選択結果をプロジェクト別設定に保存
     const saveResult = await saveProjectPresetSelection(projectSlug, selectedPresets);

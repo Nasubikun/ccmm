@@ -235,7 +235,7 @@ describe("GitHub API E2Eテスト", () => {
       const configPath = path.join(ctx.homeDir, ".ccmm", "config.json");
       const invalidConfig = {
         version: "1.0.0",
-        defaultPresetRepo: "https://github.com/nonexistent-org-99999/nonexistent-repo-99999.git",
+        defaultPresetRepositories: ["https://github.com/nonexistent-org-99999/nonexistent-repo-99999.git"],
         defaultPresets: ["README.md"]
       };
       await fs.writeFile(configPath, JSON.stringify(invalidConfig, null, 2));

@@ -16,6 +16,8 @@ import { Result, Ok, Err } from "../lib/result.js";
 export interface CcmmConfig {
   /** デフォルトプリセットリポジトリのURL一覧 */
   defaultPresetRepositories?: string[];
+  /** デフォルトで選択されるプリセットファイル一覧 */
+  defaultPresets?: string[];
   /** 設定のバージョン（将来の互換性のため） */
   version?: string;
 }

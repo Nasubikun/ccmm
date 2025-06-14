@@ -126,7 +126,7 @@ async function performEnvironmentChecks(options: CliOptions, github: GitHubDepen
   }
 
   let username: string | undefined;
-  if (ghCommand && githubToken) {
+  if (ghCommand) {
     const fetchedUsername = await github.getCurrentGitHubUsername();
     username = fetchedUsername || undefined;
     if (username) {
@@ -187,7 +187,7 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
     showInfo("プリセットリポジトリを設定しています...");
     
     // GitHub認証済みでユーザー名が取得できる場合
-    if (envCheck.username && envCheck.ghCommand) {
+    if (envCheck.username && envCheck.ghCommand && envCheck.githubToken) {
       showInfo(`${envCheck.username}/CLAUDE-md リポジトリの存在を確認しています...`);
       
       const userRepoExists = await github.checkRepositoryExists(envCheck.username, "CLAUDE-md");
@@ -309,8 +309,55 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
           return Err(new Error("--yesフラグが指定されましたが、プリセットリポジトリが存在しません。先に手動でリポジトリを作成してください"));
         }
       }
+    } else if (envCheck.username) {
+      // GitHub認証なし but usernameは取得できた場合
+      showWarning("GitHub トークンが設定されていませんが、ユーザー名は取得できました");
+      showInfo("認証後にリポジトリアクセスが可能になります。");
+      
+      if (!options.yes) {
+        const defaultValue = `github.com/${envCheck.username}/CLAUDE-md`;
+        const { manualRepo } = await inquirer.prompt([
+          {
+            type: "input",
+            name: "manualRepo",
+            message: "プリセットリポジトリのURL (例: github.com/yourname/CLAUDE-md):",
+            default: defaultValue,
+            validate: (input: string) => {
+              if (!input.trim()) {
+                return "プリセットリポジトリのURLは必須です";
+              }
+              if (!input.includes("github.com")) {
+                return "GitHub リポジトリのURLを入力してください";
+              }
+              return true;
+            },
+          },
+        ]);
+
+        const repos = manualRepo.trim().split(",").map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+        config.defaultPresetRepositories = repos;
+        
+        // リポジトリの存在確認（可能な場合）
+        if (envCheck.ghCommand && repos.length > 0) {
+          for (const repo of repos) {
+            const repoMatch = repo.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+            if (repoMatch) {
+              const [, owner, repoName] = repoMatch;
+              await github.checkRepositoryExists(owner, repoName);
+            }
+          }
+        }
+        
+        showInfo("※ 実際のリポジトリアクセスは認証後に確認されます");
+      } else {
+        // --yes フラグの場合はデフォルト値で設定
+        const defaultValue = `github.com/${envCheck.username}/CLAUDE-md`;
+        config.defaultPresetRepositories = [defaultValue];
+        showInfo(`--yesオプションにより、${defaultValue} をデフォルトリポジトリとして設定しました。`);
+        showInfo("※ 実際のリポジトリアクセスは認証後に確認されます");
+      }
     } else {
-      // GitHub認証なしの場合
+      // GitHub認証なし & username取得不可の場合
       showWarning("GitHub認証が利用できません");
       
       if (!options.yes) {
@@ -357,6 +404,17 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
           const repos = manualRepo.trim().split(",").map((r: string) => r.trim()).filter((r: string) => r.length > 0);
           config.defaultPresetRepositories = repos;
           
+          // リポジトリの存在確認（可能な場合）
+          if (envCheck.ghCommand && repos.length > 0) {
+            for (const repo of repos) {
+              const repoMatch = repo.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+              if (repoMatch) {
+                const [, owner, repoName] = repoMatch;
+                await github.checkRepositoryExists(owner, repoName);
+              }
+            }
+          }
+          
           showInfo("※ 実際のリポジトリアクセスは認証後に確認されます");
         } else {
           // 基本初期化のみ - 空の設定
@@ -367,7 +425,7 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
       } else {
         // --yes フラグの場合は基本初期化のみ
         config.defaultPresetRepositories = [];
-        showInfo("認証が利用できないため、基本初期化のみ実行しました。");
+        showInfo("--yesオプションにより基本初期化を実行しました。");
         showInfo("後で認証設定後にプリセットリポジトリを設定してください。");
       }
     }

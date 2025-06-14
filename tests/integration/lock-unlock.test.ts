@@ -58,7 +58,7 @@ describe("ロック・アンロック機能テスト", () => {
     // 設定ファイルを作成してプリセットを有効化
     const configPath = path.join(ctx.homeDir, ".ccmm", "config.json");
     const config = {
-      defaultPresetRepo: `file://${ctx.presetDir}`,
+      defaultPresetRepositories: [`file://${ctx.presetDir}`],
       defaultPresets: ["react.md", "typescript.md"]
     };
     await require("node:fs/promises").writeFile(configPath, JSON.stringify(config, null, 2));
@@ -156,7 +156,7 @@ describe("ロック・アンロック機能テスト", () => {
     
     const configPath = path.join(ctx.homeDir, ".ccmm", "config.json");
     const config = {
-      defaultPresetRepo: `file://${ctx.presetDir}`,
+      defaultPresetRepositories: [`file://${ctx.presetDir}`],
       defaultPresets: ["react.md"]
     };
     await require("node:fs/promises").writeFile(configPath, JSON.stringify(config, null, 2));

@@ -68,7 +68,7 @@ describe("シナリオ1: 初期導入 + HEAD 追従", () => {
     // ここでは設定ファイルを事前に作成してテスト
     const configPath = path.join(ctx.homeDir, ".ccmm", "config.json");
     const config = {
-      defaultPresetRepo: `file://${ctx.presetDir}`,
+      defaultPresetRepositories: [`file://${ctx.presetDir}`],
       defaultPresets: ["react.md", "typescript.md"]
     };
     await require("node:fs/promises").writeFile(configPath, JSON.stringify(config, null, 2));
@@ -226,7 +226,7 @@ describe("シナリオ1: 初期導入 + HEAD 追従", () => {
     
     const configPath = path.join(ctx.homeDir, ".ccmm", "config.json");
     const config = {
-      defaultPresetRepo: `file://${ctx.presetDir}`,
+      defaultPresetRepositories: [`file://${ctx.presetDir}`],
       defaultPresets: ["react.md"]
     };
     await require("node:fs/promises").writeFile(configPath, JSON.stringify(config, null, 2));
