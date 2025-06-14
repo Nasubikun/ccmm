@@ -1,11 +1,5 @@
 <coding-rules>
-- At the beginning of each file, before the function, describe the specification with a comment in Japanese.
 
-Example output
-```ts
-/**
- * 2点間のユークリッド距離を計算する
-**/
 type Point = { x: number; y: number; };
 export function distance(a: Point, b: Point): number {
   return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);

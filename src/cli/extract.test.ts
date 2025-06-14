@@ -11,8 +11,10 @@ import {
   getPresetChoices, 
   appendToPreset, 
   removeFromClaudeMd,
+  getClaudeMdContent,
   type DiffChange,
-  type ExtractSelection
+  type ExtractSelection,
+  type ClaudeMdLine
 } from "./extract.js";
 import * as fs from "../core/fs.js";
 
@@ -299,6 +301,110 @@ index abc123..def456 100644
       });
 
       const result = await removeFromClaudeMd(selectedLines, claudeMdPath);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message).toContain("CLAUDE.md の読み取りに失敗しました");
+      }
+    });
+  });
+
+  describe("getClaudeMdContent", () => {
+    test("CLAUDE.md の内容から抽出可能な行を取得する", async () => {
+      const claudeMdPath = "/path/to/CLAUDE.md";
+      const claudeContent = `# Project Rules
+
+- Use TypeScript
+- Enable strict mode
+
+@~/.ccmm/projects/test/merged-preset-HEAD.md`;
+
+      vi.mocked(fs.readFile).mockResolvedValue({
+        success: true,
+        data: claudeContent
+      });
+
+      const result = await getClaudeMdContent(claudeMdPath);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toHaveLength(3);
+        expect(result.data[0]).toEqual({
+          lineNumber: 1,
+          content: "# Project Rules",
+          source: "file"
+        });
+        expect(result.data[1]).toEqual({
+          lineNumber: 3,
+          content: "- Use TypeScript",
+          source: "file"
+        });
+        expect(result.data[2]).toEqual({
+          lineNumber: 4,
+          content: "- Enable strict mode",
+          source: "file"
+        });
+      }
+    });
+
+    test("空行をスキップする", async () => {
+      const claudeMdPath = "/path/to/CLAUDE.md";
+      const claudeContent = `# Title
+
+
+- Rule 1
+
+- Rule 2`;
+
+      vi.mocked(fs.readFile).mockResolvedValue({
+        success: true,
+        data: claudeContent
+      });
+
+      const result = await getClaudeMdContent(claudeMdPath);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toHaveLength(3);
+        expect(result.data[0]!.content).toBe("# Title");
+        expect(result.data[1]!.content).toBe("- Rule 1");
+        expect(result.data[2]!.content).toBe("- Rule 2");
+      }
+    });
+
+    test("import行を除外する", async () => {
+      const claudeMdPath = "/path/to/CLAUDE.md";
+      const claudeContent = `# Rules
+- Rule 1
+
+@~/.ccmm/projects/test/merged-preset-HEAD.md`;
+
+      vi.mocked(fs.readFile).mockResolvedValue({
+        success: true,
+        data: claudeContent
+      });
+
+      const result = await getClaudeMdContent(claudeMdPath);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toHaveLength(2);
+        expect(result.data[0]!.content).toBe("# Rules");
+        expect(result.data[1]!.content).toBe("- Rule 1");
+        // import行は含まれない
+        expect(result.data.some(line => line.content.startsWith("@"))).toBe(false);
+      }
+    });
+
+    test("ファイル読み取りエラーを処理する", async () => {
+      const claudeMdPath = "/path/to/CLAUDE.md";
+      
+      vi.mocked(fs.readFile).mockResolvedValue({
+        success: false,
+        error: new Error("Read failed")
+      });
+
+      const result = await getClaudeMdContent(claudeMdPath);
 
       expect(result.success).toBe(false);
       if (!result.success) {

@@ -57,6 +57,18 @@ export interface ExtractSelection {
 }
 
 /**
+ * CLAUDE.md から抽出可能な行情報
+ */
+export interface ClaudeMdLine {
+  /** 行番号 */
+  lineNumber: number;
+  /** 行の内容 */
+  content: string;
+  /** ソース（staged または file） */
+  source: 'staged' | 'file';
+}
+
+/**
  * staged changes から CLAUDE.md の追加行を取得する
  * 
  * @param repoPath - リポジトリのパス
@@ -138,6 +150,49 @@ export function parseDiffOutput(diffOutput: string): Result<DiffChange[], Error>
 }
 
 /**
+ * CLAUDE.md の内容から抽出可能な行を取得する
+ * 
+ * @param claudeMdPath - CLAUDE.md ファイルのパス
+ * @returns 抽出可能な行のリストまたはエラー
+ */
+export async function getClaudeMdContent(claudeMdPath: string): Promise<Result<ClaudeMdLine[], Error>> {
+  try {
+    // CLAUDE.md を読み取り
+    const readResult = await readFile(claudeMdPath);
+    if (!readResult.success) {
+      return Err(new Error(`CLAUDE.md の読み取りに失敗しました: ${readResult.error.message}`));
+    }
+    
+    // 内容を解析
+    const parseResult = parseCLAUDEMd(readResult.data);
+    if (!parseResult.success) {
+      return Err(parseResult.error);
+    }
+    
+    const { freeContent } = parseResult.data;
+    
+    // 自由記述部分を行に分割
+    const lines = freeContent.split('\n');
+    const claudeMdLines: ClaudeMdLine[] = [];
+    
+    lines.forEach((line, index) => {
+      // 空行はスキップ
+      if (line.trim()) {
+        claudeMdLines.push({
+          lineNumber: index + 1,
+          content: line,
+          source: 'file'
+        });
+      }
+    });
+    
+    return Ok(claudeMdLines);
+  } catch (error) {
+    return Err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+/**
  * 利用可能なプリセット選択肢を取得する
  * 
  * @returns プリセット選択肢のリストまたはエラー
@@ -175,13 +230,13 @@ export async function getPresetChoices(): Promise<Result<PresetChoice[], Error>>
 /**
  * inquirer を使用してユーザーに抽出する行とプリセットを選択させる
  * 
- * @param changes - 追加された行のリスト
+ * @param lines - 選択可能な行のリスト（staged changes または CLAUDE.md の内容）
  * @returns ユーザーの選択結果またはエラー
  */
-export async function promptUserSelection(changes: DiffChange[]): Promise<Result<ExtractSelection, Error>> {
+export async function promptUserSelection(lines: ClaudeMdLine[]): Promise<Result<ExtractSelection, Error>> {
   try {
-    if (changes.length === 0) {
-      return Err(new Error("抽出可能な追加行がありません"));
+    if (lines.length === 0) {
+      return Err(new Error("抽出可能な行がありません"));
     }
     
     // プリセット選択肢を取得
@@ -190,19 +245,49 @@ export async function promptUserSelection(changes: DiffChange[]): Promise<Result
       return Err(presetsResult.error);
     }
     
-    // 1. 抽出する行を選択
-    const lineChoices = changes.map((change, index) => ({
-      name: `${change.lineNumber}: ${change.content}`,
-      value: change.content,
-      checked: true // デフォルトでチェック
-    }));
+    // 1. 範囲選択モードで行を選択
+    console.log('抽出する行範囲を選択してください:');
     
-    const { selectedLines } = await inquirer.prompt({
-      type: 'checkbox',
-      name: 'selectedLines',
-      message: 'プリセットに抽出する行を選択してください:',
-      choices: lineChoices
+    // 行番号付きで表示
+    lines.forEach((line) => {
+      console.log(`  ${line.lineNumber}: ${line.content}`);
     });
+    console.log('');
+    
+    // 開始行を選択
+    const lineNumbers = lines.map(line => line.lineNumber);
+    const { startLine } = await inquirer.prompt({
+      type: 'list',
+      name: 'startLine',
+      message: '開始行を選択してください:',
+      choices: lines.map((line) => ({
+        name: `${line.lineNumber}: ${line.content}`,
+        value: line.lineNumber
+      }))
+    });
+    
+    // 終了行を選択（開始行以降の行のみ表示）
+    const endLineChoices = lines
+      .filter(line => line.lineNumber >= startLine)
+      .map((line) => ({
+        name: `${line.lineNumber}: ${line.content}`,
+        value: line.lineNumber
+      }));
+    
+    const { endLine } = await inquirer.prompt({
+      type: 'list',
+      name: 'endLine',
+      message: '終了行を選択してください:',
+      choices: endLineChoices
+    });
+    
+    // 選択範囲の行を取得
+    const selectedLines = lines
+      .filter(line => line.lineNumber >= startLine && line.lineNumber <= endLine)
+      .map(line => line.content);
+    
+    // 選択された行の確認表示
+    console.log(`\n選択範囲: ${startLine}-${endLine}行目（${selectedLines.length}行）\n`);
     
     // 選択された行の検証
     if (!selectedLines || selectedLines.length === 0) {
@@ -395,19 +480,45 @@ export async function extract(options: ExtractOptions = {}): Promise<Result<stri
     }
     
     const changes = changesResult.data;
-    if (changes.length === 0) {
-      return Err(new Error("CLAUDE.md に staged changes が見つかりません"));
-    }
+    let linesToExtract: ClaudeMdLine[] = [];
     
-    if (options.verbose) {
-      console.log(`${changes.length} 行の追加を検出しました`);
+    if (changes.length === 0) {
+      // staged changes がない場合は CLAUDE.md から選択
+      if (options.verbose) {
+        console.log("staged changes が見つかりません。CLAUDE.md から選択します...");
+      }
+      
+      const claudeMdResult = await getClaudeMdContent(claudeMdPath);
+      if (!claudeMdResult.success) {
+        return Err(claudeMdResult.error);
+      }
+      
+      linesToExtract = claudeMdResult.data;
+      if (linesToExtract.length === 0) {
+        return Err(new Error("CLAUDE.md に抽出可能な内容が見つかりません"));
+      }
+      
+      if (options.verbose) {
+        console.log(`CLAUDE.md から ${linesToExtract.length} 行を検出しました`);
+      }
+    } else {
+      // staged changes を ClaudeMdLine 形式に変換
+      linesToExtract = changes.map(change => ({
+        lineNumber: change.lineNumber,
+        content: change.content,
+        source: 'staged' as const
+      }));
+      
+      if (options.verbose) {
+        console.log(`${changes.length} 行の staged changes を検出しました`);
+      }
     }
     
     // ドライランモードの場合は実際の操作をスキップ
     if (options.dryRun) {
       console.log("[DRY RUN] 以下の行が抽出される予定です:");
-      changes.forEach(change => {
-        console.log(`  ${change.lineNumber}: ${change.content}`);
+      linesToExtract.forEach(line => {
+        console.log(`  ${line.source === 'staged' ? '[staged] ' : ''}${line.lineNumber}: ${line.content}`);
       });
       return Ok("[DRY RUN] 抽出操作をシミュレートしました");
     }
@@ -430,15 +541,15 @@ export async function extract(options: ExtractOptions = {}): Promise<Result<stri
       }
       
       selection = {
-        selectedLines: changes.map(change => change.content),
+        selectedLines: linesToExtract.map(line => line.content),
         preset: defaultPreset
       };
       
       if (options.verbose) {
-        console.log(`自動選択: ${changes.length} 行を ${defaultPreset.file} に抽出します`);
+        console.log(`自動選択: ${linesToExtract.length} 行を ${defaultPreset.file} に抽出します`);
       }
     } else {
-      const selectionResult = await promptUserSelection(changes);
+      const selectionResult = await promptUserSelection(linesToExtract);
       if (!selectionResult.success) {
         return Err(selectionResult.error);
       }
