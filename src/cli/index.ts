@@ -91,15 +91,15 @@ program
 program
   .command("edit")
   .description("プリセットファイルを編集する")
-  .argument("<preset>", "編集するプリセット名")
+  .argument("[preset]", "編集するプリセット名（未指定時は選択UI表示）")
   .option("--owner <owner>", "リポジトリオーナーを指定")
   .option("--repo <repo>", "リポジトリ名を指定")
   .option("-v, --verbose", "詳細ログを出力")
   .option("-y, --yes", "確認プロンプトをスキップ")
   .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
-  .action(async (preset: string, options: EditOptions) => {
-    await executeCommand("プリセット編集", (opts) => edit(preset, opts).then(result => 
-      result.success ? Ok(`プリセット ${preset} の編集が完了しました`) : result
+  .action(async (preset: string | undefined, options: EditOptions) => {
+    await executeCommand("プリセット編集", (opts) => edit(preset || "", opts).then(result => 
+      result.success ? Ok(`プリセット編集が完了しました`) : result
     ), options);
   });
 
@@ -119,7 +119,7 @@ program
 program
   .command("push")
   .description("プリセットの変更をリモートリポジトリにプッシュする")
-  .argument("<preset>", "プッシュするプリセット名")
+  .argument("[preset]", "プッシュするプリセット名（未指定時は選択UI表示）")
   .option("--owner <owner>", "リポジトリオーナーを指定")
   .option("--repo <repo>", "リポジトリ名を指定")
   .option("--title <title>", "プルリクエストのタイトル")
@@ -128,8 +128,8 @@ program
   .option("-v, --verbose", "詳細ログを出力")
   .option("-y, --yes", "確認プロンプトをスキップ")
   .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
-  .action(async (preset: string, options: PushOptions & EditOptions) => {
-    await executeCommand("プリセットプッシュ", (opts) => push(preset, opts), options);
+  .action(async (preset: string | undefined, options: PushOptions & EditOptions) => {
+    await executeCommand("プリセットプッシュ", (opts) => push(preset || "", opts), options);
   });
 
 // グローバルエラーハンドリングを設定

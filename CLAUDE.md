@@ -1,10 +1,5 @@
 <coding-rules>
 
-type Point = { x: number; y: number; };
-export function distance(a: Point, b: Point): number {
-  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
-}
-```
 
 - As much as possible, avoid the use of classes and use function-based implementations.
 - Use src/lib/result.ts to handle results.

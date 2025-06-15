@@ -26,6 +26,9 @@ vi.mock('../core/fs.js');
 vi.mock('../git/index.js');
 vi.mock('node:child_process');
 vi.mock('simple-git');
+vi.mock('../core/project.js');
+vi.mock('../core/config.js');
+vi.mock('inquirer');
 
 describe('push機能', () => {
   beforeEach(() => {

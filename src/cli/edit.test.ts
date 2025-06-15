@@ -21,6 +21,9 @@ import type { EditOptions } from '../core/types/index.js';
 // モックの設定
 vi.mock('../core/fs.js');
 vi.mock('node:child_process');
+vi.mock('../core/project.js');
+vi.mock('../core/config.js');
+vi.mock('inquirer');
 
 describe('edit機能', () => {
   beforeEach(() => {

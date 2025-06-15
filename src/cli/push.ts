@@ -10,6 +10,7 @@ import { homedir } from "node:os";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import { simpleGit, type SimpleGit } from "simple-git";
+import inquirer from "inquirer";
 import { readFile, writeFile, fileExists } from "../core/fs.js";
 import { buildPresetPath, parsePresetPath, hasContentDiff } from "../core/preset.js";
 import { Result, Ok, Err } from "../lib/result.js";
@@ -19,6 +20,8 @@ import {
   createAndCheckoutBranch,
   type PullRequestInfo 
 } from "../git/index.js";
+import { validateAndSetupProject } from "../core/project.js";
+import { getProjectPresetPointers } from "../core/config.js";
 import type { 
   PresetPointer, 
   PushOptions,
@@ -27,8 +30,138 @@ import type {
 
 const execPromise = promisify(exec);
 
+/**
+ * プッシュ可能なプリセット情報
+ */
+interface PushablePreset {
+  /** プリセット名 */
+  name: string;
+  /** プリセットポインタ */
+  pointer: PresetPointer;
+  /** ローカルファイルパス */
+  localPath: string;
+  /** 変更があるかどうか */
+  hasChanges: boolean;
+}
 
+/**
+ * プロジェクトのプリセット一覧を取得し、変更のあるものをフィルタリングする
+ * 
+ * @param options - pushオプション
+ * @returns プッシュ可能なプリセット一覧またはエラー
+ */
+export async function getPushablePresets(options: PushOptions & EditOptions = {}): Promise<Result<PushablePreset[], Error>> {
+  try {
+    // プロジェクトの設定を取得
+    const setupResult = await validateAndSetupProject();
+    if (!setupResult.success) {
+      return Err(setupResult.error);
+    }
+    
+    const { slug } = setupResult.data;
+    
+    // プロジェクトのプリセット一覧を取得
+    const pointersResult = getProjectPresetPointers(slug);
+    if (!pointersResult.success) {
+      return Err(pointersResult.error);
+    }
+    
+    const pointers = pointersResult.data;
+    if (pointers.length === 0) {
+      return Ok([]);
+    }
+    
+    const pushablePresets: PushablePreset[] = [];
+    
+    // 各プリセットをチェック
+    for (const pointer of pointers) {
+      const localPath = buildPresetPath(pointer.file, pointer.owner, pointer.repo);
+      
+      // ローカルファイルの存在確認
+      const exists = await fileExists(localPath);
+      if (!exists) {
+        continue; // 存在しないファイルはスキップ
+      }
+      
+      // ローカルファイルの内容を読み取り
+      const localContentResult = await readFile(localPath);
+      if (!localContentResult.success) {
+        continue; // 読み取りエラーはスキップ
+      }
+      
+      let hasChanges = false;
+      
+      try {
+        // アップストリームの内容を取得
+        const upstreamContentResult = await fetchUpstreamContent(pointer);
+        if (upstreamContentResult.success) {
+          // 差分をチェック
+          hasChanges = hasContentDiff(localContentResult.data, upstreamContentResult.data);
+        } else {
+          // アップストリームが存在しない場合も変更ありとみなす
+          hasChanges = true;
+        }
+      } catch {
+        // エラーが発生した場合も変更ありとみなす
+        hasChanges = true;
+      }
+      
+      pushablePresets.push({
+        name: pointer.file,
+        pointer,
+        localPath,
+        hasChanges
+      });
+    }
+    
+    return Ok(pushablePresets);
+  } catch (error) {
+    return Err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
 
+/**
+ * インタラクティブにプリセットを選択する
+ * 
+ * @param presets - 選択可能なプリセット一覧
+ * @returns 選択されたプリセット名またはエラー
+ */
+export async function selectPresetInteractive(presets: PushablePreset[]): Promise<Result<string, Error>> {
+  try {
+    if (presets.length === 0) {
+      return Err(new Error("プッシュ可能なプリセットがありません"));
+    }
+    
+    // 単一プリセットの場合は自動選択
+    if (presets.length === 1) {
+      const preset = presets[0];
+      if (!preset) {
+        return Err(new Error("プリセット情報が無効です"));
+      }
+      
+      console.log(`プリセット '${preset.name}' を自動選択しました`);
+      return Ok(preset.name);
+    }
+    
+    // 複数プリセットの場合は選択UI表示
+    const choices = presets.map(preset => ({
+      name: `${preset.name} (${preset.pointer.owner}/${preset.pointer.repo})${preset.hasChanges ? ' ※変更あり' : ''}`,
+      value: preset.name,
+      disabled: !preset.hasChanges
+    }));
+    
+    const answer = await inquirer.prompt([{
+      type: 'list',
+      name: 'preset',
+      message: 'プッシュするプリセットを選択してください:',
+      choices
+    }]);
+    
+    return Ok(answer.preset);
+  } catch (error) {
+    return Err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
 
 /**
  * アップストリームファイルの内容を取得する
@@ -281,21 +414,102 @@ export async function executeGitHubWorkflow(
  */
 export async function push(preset: string, options: PushOptions & EditOptions = {}): Promise<Result<string, Error>> {
   try {
-    if (!preset) {
-      return Err(new Error("プリセット名を指定してください"));
+    let selectedPreset: string = preset;
+    let selectedPresetInfo: PushablePreset | undefined;
+    
+    // プリセットが指定されていない場合、インタラクティブに選択
+    if (!preset || preset.trim() === '') {
+      // プロジェクトがGitリポジトリであるかチェック
+      try {
+        const setupResult = await validateAndSetupProject();
+        if (!setupResult.success) {
+          // Gitリポジトリでない場合などは、通常のエラーメッセージを返す
+          return Err(new Error("プリセット名を指定してください"));
+        }
+      } catch {
+        return Err(new Error("プリセット名を指定してください"));
+      }
+      
+      // プッシュ可能なプリセット一覧を取得
+      const presetsResult = await getPushablePresets(options);
+      if (!presetsResult.success) {
+        // プリセット取得に失敗した場合も、わかりやすいエラーメッセージを返す
+        return Err(new Error("プリセット名を指定してください"));
+      }
+      
+      const presets = presetsResult.data;
+      
+      if (presets.length === 0) {
+        return Err(new Error(
+          "プッシュ可能なプリセットがありません。\n" +
+          "まず 'ccmm sync' でプリセットを設定し、'ccmm edit' で編集してください。"
+        ));
+      }
+      
+      // 変更のあるプリセットのみフィルタリング
+      const changedPresets = presets.filter(p => p.hasChanges);
+      
+      if (changedPresets.length === 0) {
+        console.log("\n利用可能なプリセット:");
+        presets.forEach(p => {
+          console.log(`  - ${p.name} (${p.pointer.owner}/${p.pointer.repo})`);
+        });
+        return Err(new Error("\n変更のあるプリセットがありません。\n'ccmm edit <preset>' でプリセットを編集してから再度実行してください。"));
+      }
+      
+      // インタラクティブに選択
+      const selectionResult = await selectPresetInteractive(changedPresets);
+      if (!selectionResult.success) {
+        return Err(selectionResult.error);
+      }
+      
+      selectedPreset = selectionResult.data;
+      selectedPresetInfo = changedPresets.find(p => p.name === selectedPreset);
+      
+      if (!selectedPresetInfo) {
+        return Err(new Error("選択されたプリセットの情報が見つかりません"));
+      }
     }
     
-    // プリセットファイルのパスを構築（owner オプションは必須）
-    if (!options.owner) {
-      return Err(new Error("--owner オプションでリポジトリオーナーを指定してください"));
-    }
+    // 以降は既存の処理を流用するが、selectedPresetInfoがある場合はそれを優先
+    let localPath: string;
+    let pointer: PresetPointer;
     
-    const localPath = buildPresetPath(preset, options.owner, options.repo);
-    
-    // ローカルファイルの存在確認
-    const exists = await fileExists(localPath);
-    if (!exists) {
-      return Err(new Error(`プリセットファイルが見つかりません: ${localPath}`));
+    if (selectedPresetInfo) {
+      localPath = selectedPresetInfo.localPath;
+      pointer = selectedPresetInfo.pointer;
+    } else {
+      // 従来の処理（プリセット名が直接指定された場合）
+      if (!options.owner) {
+        // ownerが指定されていない場合、プロジェクトから推測を試みる
+        const presetsResult = await getPushablePresets(options);
+        if (presetsResult.success) {
+          const matchingPreset = presetsResult.data.find(p => p.name === selectedPreset);
+          if (matchingPreset) {
+            localPath = matchingPreset.localPath;
+            pointer = matchingPreset.pointer;
+          } else {
+            return Err(new Error(`プリセット '${selectedPreset}' が見つかりません。--owner オプションでリポジトリオーナーを指定してください。`));
+          }
+        } else {
+          return Err(new Error("--owner オプションでリポジトリオーナーを指定してください"));
+        }
+      } else {
+        localPath = buildPresetPath(selectedPreset, options.owner, options.repo);
+        
+        // ローカルファイルの存在確認
+        const exists = await fileExists(localPath);
+        if (!exists) {
+          return Err(new Error(`プリセットファイルが見つかりません: ${localPath}`));
+        }
+        
+        // プリセットポインタを構築
+        const pointerResult = parsePresetPath(localPath);
+        if (!pointerResult.success) {
+          return Err(pointerResult.error);
+        }
+        pointer = pointerResult.data;
+      }
     }
     
     // ローカルファイルの内容を読み取り
@@ -303,13 +517,6 @@ export async function push(preset: string, options: PushOptions & EditOptions = 
     if (!localContentResult.success) {
       return Err(localContentResult.error);
     }
-    
-    // プリセットポインタを構築
-    const pointerResult = parsePresetPath(localPath);
-    if (!pointerResult.success) {
-      return Err(pointerResult.error);
-    }
-    const pointer = pointerResult.data;
     
     // アップストリームの内容を取得
     const upstreamContentResult = await fetchUpstreamContent(pointer);
