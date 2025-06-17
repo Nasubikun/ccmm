@@ -137,6 +137,12 @@ ccmm unlock            # Return to HEAD version
 
 ---
 
+## 6. Check if it's working correctly
+
+Launch Claude Code and run the `/memory` command to view the tree of files being loaded.
+
+---
+
 ## 7. Uninstall
 
 ```bash
