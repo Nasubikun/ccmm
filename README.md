@@ -1,31 +1,40 @@
 # ccmm
 
-**ccmm (Claude Code Memory Manager)** は、Anthropic **Claude Code** の設定ファイル **CLAUDE.md** を  
-複数プロジェクト・複数リポジトリ間で再利用／共有するための CLI です。
-
-- ✨ **“自由に書く”** プロジェクト固有メモリと  
-  **“共通で使い回す”** プリセットをキレイに分離  
-- 🔒 **`lock` コマンド** ひとつでプリセットのバージョンを固定。  
-  いつ誰が実行しても同じ SHA を読み込みます  
-- 🚀 **1 行だけ** の import で Claude が読むトークンを最小化  
-- 🛫 GitHub PR まで自動化：思いついたルールをそのまま上流に “昇格”  
+**ccmm (Claude Code Memory Manager)** は、Anthropic **Claude Code** の設定ファイル `CLAUDE.md` を  
+複数プロジェクト間で再利用／共有するための CLI ツールです。
 
 ---
 
 ## 0. インストール
 
 ```bash
-npm i -g ccmm   # または pnpm, yarn
+npm install -g ccmm
+```
+
+または
+```bash
+npx ccmm
 ```
 
 > **要件**  
 > - Node.js 18+  
-> - Git / GitHub CLI (`gh`)  
-> - 環境変数 `GITHUB_TOKEN` に PAT（repo 権限）をセット
+> - Git  
+> - GitHub CLI (`gh`) * 原則必須
+> - 環境変数 `GITHUB_TOKEN` * 必要に応じて
 
 ---
 
-## 1. はじめてのセットアップ
+## 1. セットアップ
+
+事前にCLAUDE-mdリポジトリを作成し、Githubにプッシュしておく。（プライベートリポジトリで構いません）
+
+CLAUDE-mdリポジトリは以下のような構成。
+```
+ここにディレクトリツリーを書く
+```
+参考: [サンプル](https://github.com/Nasubikun/CLAUDE-md)
+
+CLAUDE-mdリポジトリを用意した上で、
 
 ```bash
 cd YOUR_PROJECT/
@@ -36,7 +45,7 @@ ccmm init
 2. 自動で `CLAUDE.md` 末尾に 1 行が追加されます
 
 ```diff
-+ @~/.ccmm/projects/github.com__myorg__<slug>/merged-preset-HEAD.md
++ @~/.ccmm/projects/<hash>/merged-preset-HEAD.md
 ```
 
 > これ以降、**自由に追記してよいのはこの行より上だけ** です。
@@ -51,35 +60,40 @@ ccmm sync
 
 - 選択したプリセット（例: `react.md`, `typescript.md`）を
   `$HOME/.ccmm/presets/...` にダウンロード  
-- 自動で **merged-preset-HEAD.md** を再生成し、Claude が読むように設定
+- 自動で`merged-preset-HEAD.md` を再生成し、Claude Code が読むように設定
 
 ---
 
-## 3. ルールを“昇格”させる
+## 3. プリセットの編集と上流への反映
 
-### 3-1. 思いついたらまず書く
-
-```markdown
-# CLAUDE.md に直接追記
-- Use eslint-plugin-react
-```
-
-### 3-2. `extract` でプリセットへ移動
+### 3-1. プリセットを直接編集
 
 ```bash
-git add CLAUDE.md          # 追記をステージ
-ccmm extract           # 行ごとに preset を振り分け
+ccmm edit react.md     # エディタでプリセットファイルを開く
+ccmm edit              # 引数なしで実行すると選択UIが表示
 ```
 
-### 3-3. PR を作る
+既存のプリセットファイルを直接エディタで編集できます。引数なしで実行すると、対話的にプリセットファイルを選択できます。
+
+### 3-2. 変更を上流リポジトリに送信
 
 ```bash
-ccmm push react.md     # upstream の CLAUDE-md に PR
+ccmm push react.md     # 変更をGitHub PRとして送信
+ccmm push              # 引数なしで実行すると選択UIが表示
 ```
+
+### 3-3. CLAUDE.mdから変更を抽出
+
+```bash
+git add CLAUDE.md      # 追記をステージ
+ccmm extract          # 変更行をプリセットに振り分け
+```
+
+CLAUDE.mdに直接書いた内容を、適切なプリセットファイルに移動させることができます。
 
 ---
 
-## 4. バージョンを固定する（リリース用）
+## 4. バージョンを固定する
 
 ```bash
 ccmm lock <commitSHA>
@@ -87,7 +101,6 @@ git commit -am "chore: lock CLAUDE presets @<SHA>"
 ```
 
 - import 行が `merged-preset-<SHA>.md` に置き換わります  
-- CI／他メンバーは **これだけ** で同じバージョンを取得：
 
 ```bash
 ccmm sync              # lock 付きプロジェクトなら自動で固定版を読む
@@ -101,28 +114,17 @@ ccmm unlock            # HEAD バージョンに戻す
 
 ---
 
-## 5. よくある質問
-
-| Q | A |
-|---|---|
-| Claude が `$HOME/.ccmm` を読んでしまいませんか？ | 読み込み対象は **CLAUDE.md に書かれたパスだけ**。`ccmm` が挿入するのは 1 行のみなので安全です。 |
-| プリセットを直接編集したい | `ccmm edit react.md` で `$EDITOR` が開きます。その後 `ccmm push` で PR。 |
-| 名前が衝突するファイルは？ | パスに `<host>/<owner>/<repo>/file.md` が入るので共存できます。 |
-| lock したままプリセットを更新したい | `ccmm unlock` → `ccmm sync` → 動作確認 → `ccmm lock <newSHA>` で再固定。 |
-
----
-
-## 6. コマンド一覧（抜粋）
+## 5. コマンド一覧
 
 | コマンド | 説明 |
 |----------|------|
-| `ccmm init` | 初回セットアップ（参照リポジトリ選択） |
+| `ccmm init` | 初回セットアップ（参照リポジトリ選択とCLAUDE.md設定） |
 | `ccmm sync` | プリセット取得・merged ファイル再生成 |
-| `ccmm extract` | 追加行をプリセットへ振り分け |
-| `ccmm edit <file>` | プリセットファイルをエディタで開く |
-| `ccmm push [file]` | 変更分を GitHub PR |
-| `ccmm lock <sha>` | プリセットの commit を固定 |
-| `ccmm unlock` | HEAD 追従モードに戻す |
+| `ccmm edit [preset]` | プリセットファイルをエディタで開く（引数なしで選択UI） |
+| `ccmm extract` | CLAUDE.mdの変更行をプリセットへ振り分け |
+| `ccmm push [preset]` | プリセット変更をGitHub PRで送信（引数なしで選択UI） |
+| `ccmm lock <sha>` | プリセットのcommitを固定 |
+| `ccmm unlock` | HEAD追従モードに戻す |
 
 ---
 
@@ -135,5 +137,4 @@ rm -rf ~/.ccmm        # キャッシュごと削除（任意）
 
 ---
 
-開発 Issue や改善提案は [GitHub Discussions](https://github.com/your-org/ccmm/discussions) へどうぞ！  
 Happy Claude Coding 🚀
