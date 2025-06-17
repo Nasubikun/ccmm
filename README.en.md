@@ -32,7 +32,14 @@ First, create a CLAUDE-md repository and push it to GitHub. (Private repositorie
 
 The CLAUDE-md repository should have the following structure:
 ```
-Write directory tree here
+CLAUDE-md/
+├── react.md
+├── typescript.md
+├── nextjs.md
+├── vue.md
+├── python.md
+├── nodejs.md
+└── common.md
 ```
 Reference: [Sample](https://github.com/Nasubikun/CLAUDE-md)
 

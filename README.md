@@ -32,7 +32,14 @@ npx ccmm
 
 CLAUDE-mdリポジトリは以下のような構成。
 ```
-ここにディレクトリツリーを書く
+CLAUDE-md/
+├── react.md
+├── typescript.md
+├── nextjs.md
+├── vue.md
+├── python.md
+├── nodejs.md
+└── common.md
 ```
 参考: [サンプル](https://github.com/Nasubikun/CLAUDE-md)
 
