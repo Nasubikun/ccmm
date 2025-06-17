@@ -1,6 +1,6 @@
 {
   "name": "ccmm",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Claude Code Memory (CLAUDE.md) Manager - Manage CLAUDE.md presets across projects",
   "type": "module",
   "bin": {
