@@ -286,14 +286,14 @@ export function validateConfig(config: CcmmConfig): Result<void, Error> {
     // バージョンチェック
     if (config.version && config.version !== DEFAULT_CONFIG.version) {
       // 将来的にはマイグレーション処理を実装
-      console.warn(`設定ファイルのバージョンが異なります: ${config.version} (期待値: ${DEFAULT_CONFIG.version})`);
+      console.warn(`Configuration file version mismatch: ${config.version} (expected: ${DEFAULT_CONFIG.version})`);
     }
     
     // プリセットリポジトリURLの妥当性チェック
     if (config.defaultPresetRepositories && config.defaultPresetRepositories.length > 0) {
       for (const repoUrl of config.defaultPresetRepositories) {
         if (!repoUrl.includes('github.com/')) {
-          return Err(new Error(`現在はGitHubリポジトリのみサポートしています: ${repoUrl}`));
+          return Err(new Error(`Currently only GitHub repositories are supported: ${repoUrl}`));
         }
       }
     }

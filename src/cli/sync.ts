@@ -7,7 +7,7 @@
 
 import { join, dirname } from "node:path";
 import { homedir } from "node:os";
-import { readFile, writeFile, ensureDir, expandTilde, fileExists } from "../core/fs.js";
+import { readFile, writeFile, ensureDir, expandTilde, fileExists, contractTilde } from "../core/fs.js";
 import { makeSlug } from "../core/slug.js";
 import { getOriginUrl, isGitRepository, shallowFetch, batchFetch } from "../git/index.js";
 import { validateAndSetupProject, generateProjectPaths } from "../core/project.js";
@@ -159,10 +159,10 @@ export async function fetchPresets(pointers: PresetPointer[], homePresetDir: str
  */
 export async function generateMerged(presets: PresetInfo[], mergedPresetPath: string, commit: string): Promise<Result<MergedPreset, Error>> {
   try {
-    // プリセットの@import行を生成（lock機能との整合性のため）
+    // プリセットの@import行を生成（lock機能との整合性のため、絶対パスを~/形式に変換）
     const importLines = presets
       .filter(preset => preset.localPath) // ローカルパスがあるもののみ
-      .map(preset => `@${preset.localPath}`);
+      .map(preset => `@${contractTilde(preset.localPath)}`);
     
     // @import行のリストをファイルに書き込み
     const mergedContent = importLines.join('\n');
@@ -221,8 +221,8 @@ export async function updateClaudeMd(
       }
     }
     
-    // 新しいimport行を生成
-    const newImportLine = `@${mergedPresetPath}`;
+    // 新しいimport行を生成（絶対パスを~/形式に変換）
+    const newImportLine = `@${contractTilde(mergedPresetPath)}`;
     
     // 新しいCLAUDE.md内容を生成
     let newContent = content.freeContent;
@@ -257,12 +257,12 @@ export async function sync(options: SyncOptions = {}): Promise<Result<string, Er
   try {
     // 0. オプションの検証
     if (options.skipSelection && options.reselect) {
-      return Err(new Error("--skip-selection と --reselect オプションは同時に指定できません"));
+      return Err(new Error("--skip-selection and --reselect options cannot be specified simultaneously"));
     }
 
     // 1. ccmmが初期化されているか確認
     if (!isInitialized()) {
-      return Err(new Error("ccmmが初期化されていません。先に 'ccmm init' を実行してください"));
+      return Err(new Error("ccmm is not initialized. Please run 'ccmm init' first"));
     }
     
     // 2. Git前処理とプロジェクトセットアップ
@@ -299,7 +299,7 @@ export async function sync(options: SyncOptions = {}): Promise<Result<string, Er
     if (presetPointers.length === 0) {
       // 初回実行時 - 必ずインタラクティブ選択
       if (options.verbose) {
-        console.log("初回実行のため、プリセットファイルを選択します...");
+        console.log("First run, selecting preset files...");
       }
       const interactiveResult = await runInteractivePresetSelection(slug, commit, options);
       if (!interactiveResult.success) {
@@ -311,7 +311,7 @@ export async function sync(options: SyncOptions = {}): Promise<Result<string, Er
       if (options.reselect) {
         // --reselect: 強制的に再選択
         if (options.verbose) {
-          console.log("--reselect オプションが指定されたため、プリセットを再選択します...");
+          console.log("--reselect option specified, reselecting presets...");
         }
         const interactiveResult = await runInteractivePresetSelection(slug, commit, options);
         if (!interactiveResult.success) {
@@ -321,7 +321,7 @@ export async function sync(options: SyncOptions = {}): Promise<Result<string, Er
       } else if (options.skipSelection) {
         // --skip-selection: 現在の設定をそのまま使用
         if (options.verbose) {
-          console.log("--skip-selection オプションが指定されたため、現在の設定を使用します");
+          console.log("--skip-selection option specified, using current settings");
         }
       } else {
         // デフォルト: プロンプトで確認
@@ -340,7 +340,7 @@ export async function sync(options: SyncOptions = {}): Promise<Result<string, Er
         } else {
           // 現在の設定を維持
           if (options.verbose) {
-            console.log("現在のプリセット設定を維持します");
+            console.log("Maintaining current preset settings");
           }
         }
       }
@@ -365,7 +365,7 @@ export async function sync(options: SyncOptions = {}): Promise<Result<string, Er
       return Err(updateResult.error);
     }
     
-    return Ok("プリセットの同期が完了しました");
+    return Ok("Preset synchronization completed");
   } catch (error) {
     return Err(error instanceof Error ? error : new Error(String(error)));
   }
@@ -379,7 +379,7 @@ export async function sync(options: SyncOptions = {}): Promise<Result<string, Er
  */
 async function promptForReselection(presetPointers: PresetPointer[]): Promise<Result<boolean, Error>> {
   try {
-    console.log("\n現在のプリセット設定:");
+    console.log("\nCurrent preset settings:");
     presetPointers.forEach((pointer, index) => {
       console.log(`  ${index + 1}. ${pointer.file} (${pointer.owner}/${pointer.repo}@${pointer.commit})`);
     });
@@ -388,7 +388,7 @@ async function promptForReselection(presetPointers: PresetPointer[]): Promise<Re
     const { shouldReselect } = await inquirer.prompt({
       type: 'confirm',
       name: 'shouldReselect',
-      message: 'プリセット設定を変更しますか？',
+      message: 'Do you want to change preset settings?',
       default: false
     });
 
@@ -411,17 +411,17 @@ async function runInteractivePresetSelection(
   options: SyncOptions = {}
 ): Promise<Result<PresetPointer[], Error>> {
   try {
-    console.log("初回実行です。使用するプリセットファイルを選択してください。");
+    console.log("First run. Please select preset files to use.");
     
     // グローバル設定から利用可能なリポジトリを取得
     const configResult = loadConfig();
     if (!configResult.success) {
-      return Err(new Error("設定ファイルの読み込みに失敗しました"));
+      return Err(new Error("Failed to load configuration file"));
     }
     
     const config = configResult.data;
     if (!config.defaultPresetRepositories || config.defaultPresetRepositories.length === 0) {
-      return Err(new Error("デフォルトプリセットリポジトリが設定されていません。'ccmm init' を実行してください"));
+      return Err(new Error("Default preset repositories are not configured. Please run 'ccmm init'"));
     }
     
     // 各リポジトリからプリセットファイル一覧を取得
@@ -429,7 +429,7 @@ async function runInteractivePresetSelection(
     const failedRepos: Array<{repo: string, error: string}> = [];
     
     for (const repoUrl of config.defaultPresetRepositories) {
-      console.log(`${repoUrl} からプリセットファイルを取得中...`);
+      console.log(`Fetching preset files from ${repoUrl}...`);
       
       const scanResult = await scanPresetFiles(repoUrl);
       if (!scanResult.success) {
@@ -437,7 +437,7 @@ async function runInteractivePresetSelection(
         failedRepos.push({ repo: repoUrl, error: errorMessage });
         
         // 認証関連のエラーかどうかを判断
-        if (errorMessage.includes("GITHUB_TOKEN") || errorMessage.includes("認証")) {
+        if (errorMessage.includes("GITHUB_TOKEN") || errorMessage.includes("auth")) {
           console.error(`❌ ${repoUrl}: ${errorMessage}`);
         } else {
           console.warn(`⚠️  ${repoUrl}: ${errorMessage}`);
@@ -445,7 +445,7 @@ async function runInteractivePresetSelection(
         continue;
       }
       
-      console.log(`✅ ${repoUrl}: ${scanResult.data.length}個のプリセットファイルを発見`);
+      console.log(`✅ ${repoUrl}: Found ${scanResult.data.length} preset files`);
       
       for (const fileInfo of scanResult.data) {
         allPresetFiles.push({
@@ -462,16 +462,16 @@ async function runInteractivePresetSelection(
       
       if (authErrors.length > 0) {
         return Err(new Error(
-          `プリセットファイルを取得できませんでした。認証が必要です。\n\n` +
-          `解決方法:\n` +
-          `1. GitHub CLI: 'gh auth login' を実行\n` +
-          `2. 環境変数: GITHUB_TOKEN を設定\n\n` +
-          `失敗したリポジトリ:\n${authErrors.map(f => `- ${f.repo}`).join('\n')}`
+          `Could not fetch preset files. Authentication required.\n\n` +
+          `Solutions:\n` +
+          `1. GitHub CLI: Run 'gh auth login'\n` +
+          `2. Environment variable: Set GITHUB_TOKEN\n\n` +
+          `Failed repositories:\n${authErrors.map(f => `- ${f.repo}`).join('\n')}`
         ));
       } else {
         return Err(new Error(
-          `利用可能なプリセットファイルが見つかりませんでした。\n\n` +
-          `失敗したリポジトリ:\n${failedRepos.map(f => `- ${f.repo}: ${f.error}`).join('\n')}`
+          `No available preset files found.\n\n` +
+          `Failed repositories:\n${failedRepos.map(f => `- ${f.repo}: ${f.error}`).join('\n')}`
         ));
       }
     }
@@ -488,16 +488,16 @@ async function runInteractivePresetSelection(
         
         if (selectedPresets.length === 0) {
           return Err(new Error(
-            `デフォルトプリセット (${config.defaultPresets.join(', ')}) が見つかりませんでした。\n` +
-            `利用可能なプリセット: ${allPresetFiles.map(p => p.file).join(', ')}`
+            `Default presets (${config.defaultPresets.join(', ')}) not found.\n` +
+            `Available presets: ${allPresetFiles.map(p => p.file).join(', ')}`
           ));
         }
         
-        console.log(`✅ デフォルトプリセットを自動選択: ${selectedPresets.map(p => p.file).join(', ')}`);
+        console.log(`✅ Auto-selected default presets: ${selectedPresets.map(p => p.file).join(', ')}`);
       } else {
         // defaultPresetsが設定されていない場合は全て選択
         selectedPresets = allPresetFiles.map(preset => ({ repo: preset.repo, file: preset.file }));
-        console.log(`✅ 利用可能なプリセットをすべて選択: ${selectedPresets.map(p => p.file).join(', ')}`);
+        console.log(`✅ Selected all available presets: ${selectedPresets.map(p => p.file).join(', ')}`);
       }
     } else {
       // インタラクティブモード
@@ -511,11 +511,11 @@ async function runInteractivePresetSelection(
         {
           type: 'checkbox',
           name: 'selectedPresets',
-          message: '使用するプリセットファイルを選択してください:',
+          message: 'Select preset files to use:',
           choices,
           validate: (input) => {
             if (input.length === 0) {
-              return '少なくとも1つのプリセットファイルを選択してください';
+              return 'Please select at least one preset file';
             }
             return true;
           }
@@ -531,7 +531,7 @@ async function runInteractivePresetSelection(
       return Err(saveResult.error);
     }
     
-    console.log(`${selectedPresets.length}個のプリセットファイルが選択されました。`);
+    console.log(`${selectedPresets.length} preset files selected.`);
     
     // PresetPointer 配列に変換
     const presetPointers: PresetPointer[] = [];

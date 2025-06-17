@@ -129,23 +129,23 @@ export async function getPushablePresets(options: PushOptions & EditOptions = {}
 export async function selectPresetInteractive(presets: PushablePreset[]): Promise<Result<string, Error>> {
   try {
     if (presets.length === 0) {
-      return Err(new Error("プッシュ可能なプリセットがありません"));
+      return Err(new Error("No pushable presets available"));
     }
     
     // 単一プリセットの場合は自動選択
     if (presets.length === 1) {
       const preset = presets[0];
       if (!preset) {
-        return Err(new Error("プリセット情報が無効です"));
+        return Err(new Error("Invalid preset information"));
       }
       
-      console.log(`プリセット '${preset.name}' を自動選択しました`);
+      console.log(`Auto-selected preset '${preset.name}'`);
       return Ok(preset.name);
     }
     
     // 複数プリセットの場合は選択UI表示
     const choices = presets.map(preset => ({
-      name: `${preset.name} (${preset.pointer.owner}/${preset.pointer.repo})${preset.hasChanges ? ' ※変更あり' : ''}`,
+      name: `${preset.name} (${preset.pointer.owner}/${preset.pointer.repo})${preset.hasChanges ? ' *has changes' : ''}`,
       value: preset.name,
       disabled: !preset.hasChanges
     }));
@@ -153,7 +153,7 @@ export async function selectPresetInteractive(presets: PushablePreset[]): Promis
     const answer = await inquirer.prompt([{
       type: 'list',
       name: 'preset',
-      message: 'プッシュするプリセットを選択してください:',
+      message: 'Select preset to push:',
       choices
     }]);
     
@@ -240,7 +240,7 @@ export async function commitChanges(
     const result = await git.commit(message);
     
     if (!result.commit) {
-      return Err(new Error("コミットの作成に失敗しました"));
+      return Err(new Error("Failed to create commit"));
     }
     
     return Ok(result.commit);
@@ -301,7 +301,7 @@ export async function executeGitHubWorkflow(
       workingDir = join(tempDir, "repo");
       
       if (options.verbose) {
-        console.log(`リポジトリをクローンしました: ${repoUrl}`);
+        console.log(`Cloned repository: ${repoUrl}`);
       }
     } catch (cloneError) {
       // クローンに失敗した場合、フォークを試行
@@ -322,10 +322,10 @@ export async function executeGitHubWorkflow(
         await git.addRemote("upstream", repoUrl);
         
         if (options.verbose) {
-          console.log(`リポジトリをフォークしてクローンしました: ${forkUrl}`);
+          console.log(`Forked and cloned repository: ${forkUrl}`);
         }
       } catch (forkError) {
-        return Err(new Error(`リポジトリのクローン/フォークに失敗しました: ${forkError}`));
+        return Err(new Error(`Failed to clone/fork repository: ${forkError}`));
       }
     }
     
@@ -338,7 +338,7 @@ export async function executeGitHubWorkflow(
       }
       
       if (options.verbose) {
-        console.log(`ブランチを作成しました: ${branchName}`);
+        console.log(`Created branch: ${branchName}`);
       }
       
       // ファイルを更新
@@ -349,7 +349,7 @@ export async function executeGitHubWorkflow(
       }
       
       if (options.verbose) {
-        console.log(`ファイルを更新しました: ${pointer.file}`);
+        console.log(`Updated file: ${pointer.file}`);
       }
       
       // コミットを作成
@@ -360,7 +360,7 @@ export async function executeGitHubWorkflow(
       }
       
       if (options.verbose) {
-        console.log(`コミットを作成しました: ${commitResult.data}`);
+        console.log(`Created commit: ${commitResult.data}`);
       }
       
       // ブランチをプッシュ
@@ -370,13 +370,13 @@ export async function executeGitHubWorkflow(
       }
       
       if (options.verbose) {
-        console.log(`ブランチをプッシュしました: ${branchName}`);
+        console.log(`Pushed branch: ${branchName}`);
       }
       
       // PRを作成
       const prInfo: PullRequestInfo = {
         title: options.title || `Update ${preset} via ccmm`,
-        body: options.body || `ccmm経由で ${preset} プリセットファイルを更新しました。\n\n自動生成されたプルリクエストです。`,
+        body: options.body || `Updated ${preset} preset file via ccmm.\n\nThis is an automatically generated pull request.`,
         branch: branchName,
         owner: pointer.owner,
         repo: pointer.repo
@@ -388,7 +388,7 @@ export async function executeGitHubWorkflow(
       }
       
       if (options.verbose) {
-        console.log(`プルリクエストを作成しました: ${prResult.data}`);
+        console.log(`Created pull request: ${prResult.data}`);
       }
       
       return Ok(prResult.data);
@@ -424,25 +424,25 @@ export async function push(preset: string, options: PushOptions & EditOptions = 
         const setupResult = await validateAndSetupProject();
         if (!setupResult.success) {
           // Gitリポジトリでない場合などは、通常のエラーメッセージを返す
-          return Err(new Error("プリセット名を指定してください"));
+          return Err(new Error("Please specify preset name"));
         }
       } catch {
-        return Err(new Error("プリセット名を指定してください"));
+        return Err(new Error("Please specify preset name"));
       }
       
       // プッシュ可能なプリセット一覧を取得
       const presetsResult = await getPushablePresets(options);
       if (!presetsResult.success) {
         // プリセット取得に失敗した場合も、わかりやすいエラーメッセージを返す
-        return Err(new Error("プリセット名を指定してください"));
+        return Err(new Error("Please specify preset name"));
       }
       
       const presets = presetsResult.data;
       
       if (presets.length === 0) {
         return Err(new Error(
-          "プッシュ可能なプリセットがありません。\n" +
-          "まず 'ccmm sync' でプリセットを設定し、'ccmm edit' で編集してください。"
+          "No pushable presets available.\n" +
+          "Please first set up presets with 'ccmm sync' and edit them with 'ccmm edit'."
         ));
       }
       
@@ -450,11 +450,11 @@ export async function push(preset: string, options: PushOptions & EditOptions = 
       const changedPresets = presets.filter(p => p.hasChanges);
       
       if (changedPresets.length === 0) {
-        console.log("\n利用可能なプリセット:");
+        console.log("\nAvailable presets:");
         presets.forEach(p => {
           console.log(`  - ${p.name} (${p.pointer.owner}/${p.pointer.repo})`);
         });
-        return Err(new Error("\n変更のあるプリセットがありません。\n'ccmm edit <preset>' でプリセットを編集してから再度実行してください。"));
+        return Err(new Error("\nNo presets with changes found.\nPlease edit presets with 'ccmm edit <preset>' and then run again."));
       }
       
       // インタラクティブに選択
@@ -467,7 +467,7 @@ export async function push(preset: string, options: PushOptions & EditOptions = 
       selectedPresetInfo = changedPresets.find(p => p.name === selectedPreset);
       
       if (!selectedPresetInfo) {
-        return Err(new Error("選択されたプリセットの情報が見つかりません"));
+        return Err(new Error("Selected preset information not found"));
       }
     }
     
@@ -489,10 +489,10 @@ export async function push(preset: string, options: PushOptions & EditOptions = 
             localPath = matchingPreset.localPath;
             pointer = matchingPreset.pointer;
           } else {
-            return Err(new Error(`プリセット '${selectedPreset}' が見つかりません。--owner オプションでリポジトリオーナーを指定してください。`));
+            return Err(new Error(`Preset '${selectedPreset}' not found. Please specify repository owner with --owner option.`));
           }
         } else {
-          return Err(new Error("--owner オプションでリポジトリオーナーを指定してください"));
+          return Err(new Error("Please specify repository owner with --owner option"));
         }
       } else {
         localPath = buildPresetPath(selectedPreset, options.owner, options.repo);
@@ -500,7 +500,7 @@ export async function push(preset: string, options: PushOptions & EditOptions = 
         // ローカルファイルの存在確認
         const exists = await fileExists(localPath);
         if (!exists) {
-          return Err(new Error(`プリセットファイルが見つかりません: ${localPath}`));
+          return Err(new Error(`Preset file not found: ${localPath}`));
         }
         
         // プリセットポインタを構築
@@ -521,22 +521,22 @@ export async function push(preset: string, options: PushOptions & EditOptions = 
     // アップストリームの内容を取得
     const upstreamContentResult = await fetchUpstreamContent(pointer);
     if (!upstreamContentResult.success) {
-      return Err(new Error(`アップストリームファイルの取得に失敗: ${upstreamContentResult.error.message}`));
+      return Err(new Error(`Failed to fetch upstream file: ${upstreamContentResult.error.message}`));
     }
     
     // 差分をチェック
     const hasDiff = hasContentDiff(localContentResult.data, upstreamContentResult.data);
     if (!hasDiff) {
-      return Ok("変更がないため、プッシュする必要はありません");
+      return Ok("No changes to push");
     }
     
     // ドライランモードの場合は実際の操作をスキップ
     if (options.dryRun) {
-      return Ok(`[DRY RUN] ${preset} の変更をプッシュする予定です`);
+      return Ok(`[DRY RUN] Will push changes for ${preset}`);
     }
     
     if (options.verbose) {
-      console.log(`差分を検出しました。${preset} の変更をプッシュします...`);
+      console.log(`Detected changes. Pushing changes for ${preset}...`);
     }
     
     // GitHub連携処理を実行

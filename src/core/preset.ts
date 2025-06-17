@@ -47,7 +47,7 @@ export function parsePresetPath(presetPath: string): Result<PresetPointer, Error
     const presetsDir = join(homeDir, ".ccmm", "presets");
     
     if (!presetPath.startsWith(presetsDir)) {
-      return Err(new Error("プリセットファイルのパスが正しくありません"));
+      return Err(new Error("Invalid preset file path"));
     }
     
     // プリセットディレクトリからの相対パスを取得
@@ -55,14 +55,14 @@ export function parsePresetPath(presetPath: string): Result<PresetPointer, Error
     const parts = relativePath.split("/");
     
     if (parts.length < 4) {
-      return Err(new Error("プリセットファイルのパス形式が無効です"));
+      return Err(new Error("Invalid preset file path format"));
     }
     
     const [host, owner, repo, ...fileParts] = parts;
     const file = fileParts.join("/");
     
     if (!host || !owner || !repo || !file) {
-      return Err(new Error("プリセットファイルのパス形式が無効です"));
+      return Err(new Error("Invalid preset file path format"));
     }
     
     const pointer: PresetPointer = {
@@ -132,7 +132,7 @@ export async function readPresetFile(filePath: string): Promise<Result<string, E
   try {
     const exists = await fileExists(filePath);
     if (!exists) {
-      return Err(new Error(`プリセットファイルが見つかりません: ${filePath}`));
+      return Err(new Error(`Preset file not found: ${filePath}`));
     }
     
     return await readFile(filePath);

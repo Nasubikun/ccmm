@@ -1,6 +1,4 @@
 <coding-rules>
-
-
 - As much as possible, avoid the use of classes and use function-based implementations.
 - Use src/lib/result.ts to handle results.
 </coding-rules>
@@ -21,4 +19,4 @@ e.g.: 0-implementation-intent.md
 If you want to know the reason of implements, you can check past work files.
 <workfiles>
 
-@/Users/jo/.ccmm/projects/3c6ac3e255e73ab6/merged-preset-HEAD.md
+@~/.ccmm/projects/3c6ac3e255e73ab6/merged-preset-HEAD.md

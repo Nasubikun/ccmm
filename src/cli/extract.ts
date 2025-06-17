@@ -160,7 +160,7 @@ export async function getClaudeMdContent(claudeMdPath: string): Promise<Result<C
     // CLAUDE.md を読み取り
     const readResult = await readFile(claudeMdPath);
     if (!readResult.success) {
-      return Err(new Error(`CLAUDE.md の読み取りに失敗しました: ${readResult.error.message}`));
+      return Err(new Error(`Failed to read CLAUDE.md: ${readResult.error.message}`));
     }
     
     // 内容を解析
@@ -202,19 +202,19 @@ export async function getPresetChoices(): Promise<Result<PresetChoice[], Error>>
     // 現在は固定値だが、将来は設定ファイルから読み取り可能
     const choices: PresetChoice[] = [
       {
-        name: "react.md - React プロジェクト用プリセット",
+        name: "react.md - Preset for React projects",
         file: "react.md",
         owner: "myorg", // TODO: 設定ファイルから取得
         repo: "CLAUDE-md"
       },
       {
-        name: "typescript.md - TypeScript プロジェクト用プリセット", 
+        name: "typescript.md - Preset for TypeScript projects", 
         file: "typescript.md",
         owner: "myorg", // TODO: 設定ファイルから取得
         repo: "CLAUDE-md"
       },
       {
-        name: "その他のプリセット（手動入力）",
+        name: "Other preset (manual input)",
         file: "custom",
         owner: "custom",
         repo: "custom"
@@ -236,7 +236,7 @@ export async function getPresetChoices(): Promise<Result<PresetChoice[], Error>>
 export async function promptUserSelection(lines: ClaudeMdLine[]): Promise<Result<ExtractSelection, Error>> {
   try {
     if (lines.length === 0) {
-      return Err(new Error("抽出可能な行がありません"));
+      return Err(new Error("No extractable lines available"));
     }
     
     // プリセット選択肢を取得
@@ -246,7 +246,7 @@ export async function promptUserSelection(lines: ClaudeMdLine[]): Promise<Result
     }
     
     // 1. 範囲選択モードで行を選択
-    console.log('抽出する行範囲を選択してください:');
+    console.log('Select line range to extract:');
     
     // 行番号付きで表示
     lines.forEach((line) => {
@@ -259,7 +259,7 @@ export async function promptUserSelection(lines: ClaudeMdLine[]): Promise<Result
     const { startLine } = await inquirer.prompt({
       type: 'list',
       name: 'startLine',
-      message: '開始行を選択してください:',
+      message: 'Select start line:',
       choices: lines.map((line) => ({
         name: `${line.lineNumber}: ${line.content}`,
         value: line.lineNumber
@@ -277,7 +277,7 @@ export async function promptUserSelection(lines: ClaudeMdLine[]): Promise<Result
     const { endLine } = await inquirer.prompt({
       type: 'list',
       name: 'endLine',
-      message: '終了行を選択してください:',
+      message: 'Select end line:',
       choices: endLineChoices
     });
     
@@ -287,18 +287,18 @@ export async function promptUserSelection(lines: ClaudeMdLine[]): Promise<Result
       .map(line => line.content);
     
     // 選択された行の確認表示
-    console.log(`\n選択範囲: ${startLine}-${endLine}行目（${selectedLines.length}行）\n`);
+    console.log(`\nSelected range: lines ${startLine}-${endLine} (${selectedLines.length} lines)\n`);
     
     // 選択された行の検証
     if (!selectedLines || selectedLines.length === 0) {
-      return Err(new Error('少なくとも1行は選択してください'));
+      return Err(new Error('Please select at least one line'));
     }
     
     // 2. 対象プリセットを選択
     const { presetName } = await inquirer.prompt({
       type: 'list',
       name: 'presetName',
-      message: '抽出先のプリセットを選択してください:',
+      message: 'Select destination preset:',
       choices: presetsResult.data.map(choice => ({
         name: choice.name,
         value: choice.file
@@ -312,32 +312,32 @@ export async function promptUserSelection(lines: ClaudeMdLine[]): Promise<Result
       const fileInfo = await inquirer.prompt({
         type: 'input',
         name: 'file',
-        message: 'プリセットファイル名を入力してください（例: myproject.md）:'
+        message: 'Enter preset file name (e.g. myproject.md):'
       });
       
       // ファイル名の検証
       if (!fileInfo.file || !fileInfo.file.trim()) {
-        return Err(new Error('ファイル名を入力してください'));
+        return Err(new Error('Please enter file name'));
       }
       if (!fileInfo.file.endsWith('.md')) {
-        return Err(new Error('.md 拡張子が必要です'));
+        return Err(new Error('.md extension required'));
       }
       
       const ownerInfo = await inquirer.prompt({
         type: 'input',
         name: 'owner',
-        message: 'リポジトリオーナーを入力してください:'
+        message: 'Enter repository owner:'
       });
       
       // オーナー名の検証
       if (!ownerInfo.owner || !ownerInfo.owner.trim()) {
-        return Err(new Error('オーナー名を入力してください'));
+        return Err(new Error('Please enter owner name'));
       }
       
       const repoInfo = await inquirer.prompt({
         type: 'input',
         name: 'repo',
-        message: 'リポジトリ名を入力してください（デフォルト: CLAUDE-md）:',
+        message: 'Enter repository name (default: CLAUDE-md):',
         default: 'CLAUDE-md'
       });
       
@@ -348,7 +348,7 @@ export async function promptUserSelection(lines: ClaudeMdLine[]): Promise<Result
       };
       
       selectedPreset = {
-        name: `${customInfo.file} - カスタムプリセット`,
+        name: `${customInfo.file} - Custom preset`,
         file: customInfo.file,
         owner: customInfo.owner,
         repo: customInfo.repo
@@ -356,7 +356,7 @@ export async function promptUserSelection(lines: ClaudeMdLine[]): Promise<Result
     }
     
     if (!selectedPreset) {
-      return Err(new Error("プリセットの選択に失敗しました"));
+      return Err(new Error("Failed to select preset"));
     }
     
     return Ok({
@@ -420,7 +420,7 @@ export async function removeFromClaudeMd(selectedLines: string[], claudeMdPath: 
     // CLAUDE.md を読み取り
     const readResult = await readFile(claudeMdPath);
     if (!readResult.success) {
-      return Err(new Error(`CLAUDE.md の読み取りに失敗しました: ${readResult.error.message}`));
+      return Err(new Error(`Failed to read CLAUDE.md: ${readResult.error.message}`));
     }
     
     // 内容を解析
@@ -470,7 +470,7 @@ export async function extract(options: ExtractOptions = {}): Promise<Result<stri
     const claudeMdPath = join(projectRoot, 'CLAUDE.md');
     
     if (options.verbose) {
-      console.log("CLAUDE.md から staged changes を抽出しています...");
+      console.log("Extracting staged changes from CLAUDE.md...");
     }
     
     // 1. staged changes を取得
@@ -485,7 +485,7 @@ export async function extract(options: ExtractOptions = {}): Promise<Result<stri
     if (changes.length === 0) {
       // staged changes がない場合は CLAUDE.md から選択
       if (options.verbose) {
-        console.log("staged changes が見つかりません。CLAUDE.md から選択します...");
+        console.log("No staged changes found. Selecting from CLAUDE.md...");
       }
       
       const claudeMdResult = await getClaudeMdContent(claudeMdPath);
@@ -495,11 +495,11 @@ export async function extract(options: ExtractOptions = {}): Promise<Result<stri
       
       linesToExtract = claudeMdResult.data;
       if (linesToExtract.length === 0) {
-        return Err(new Error("CLAUDE.md に抽出可能な内容が見つかりません"));
+        return Err(new Error("No extractable content found in CLAUDE.md"));
       }
       
       if (options.verbose) {
-        console.log(`CLAUDE.md から ${linesToExtract.length} 行を検出しました`);
+        console.log(`Found ${linesToExtract.length} lines in CLAUDE.md`);
       }
     } else {
       // staged changes を ClaudeMdLine 形式に変換
@@ -510,17 +510,17 @@ export async function extract(options: ExtractOptions = {}): Promise<Result<stri
       }));
       
       if (options.verbose) {
-        console.log(`${changes.length} 行の staged changes を検出しました`);
+        console.log(`Found ${changes.length} staged changes`);
       }
     }
     
     // ドライランモードの場合は実際の操作をスキップ
     if (options.dryRun) {
-      console.log("[DRY RUN] 以下の行が抽出される予定です:");
+      console.log("[DRY RUN] The following lines will be extracted:");
       linesToExtract.forEach(line => {
         console.log(`  ${line.source === 'staged' ? '[staged] ' : ''}${line.lineNumber}: ${line.content}`);
       });
-      return Ok("[DRY RUN] 抽出操作をシミュレートしました");
+      return Ok("[DRY RUN] Extraction operation simulated");
     }
     
     // 2. ユーザーに選択させる（--yesの場合は自動選択）
@@ -537,7 +537,7 @@ export async function extract(options: ExtractOptions = {}): Promise<Result<stri
       const defaultPreset = presetChoices[0]; // 最初のプリセットを選択
       
       if (!defaultPreset) {
-        return Err(new Error("利用可能なプリセットが見つかりません"));
+        return Err(new Error("No available presets found"));
       }
       
       selection = {
@@ -546,7 +546,7 @@ export async function extract(options: ExtractOptions = {}): Promise<Result<stri
       };
       
       if (options.verbose) {
-        console.log(`自動選択: ${linesToExtract.length} 行を ${defaultPreset.file} に抽出します`);
+        console.log(`Auto-selected: Extracting ${linesToExtract.length} lines to ${defaultPreset.file}`);
       }
     } else {
       const selectionResult = await promptUserSelection(linesToExtract);
@@ -557,7 +557,7 @@ export async function extract(options: ExtractOptions = {}): Promise<Result<stri
     }
     
     if (options.verbose) {
-      console.log(`${selection.selectedLines.length} 行を ${selection.preset.file} に抽出します`);
+      console.log(`Extracting ${selection.selectedLines.length} lines to ${selection.preset.file}`);
     }
     
     // 3. プリセットファイルに追記
@@ -575,8 +575,8 @@ export async function extract(options: ExtractOptions = {}): Promise<Result<stri
     }
     
     if (options.verbose) {
-      console.log(`✓ ${selection.selectedLines.length} 行を ${selection.preset.file} に抽出しました`);
-      console.log(`✓ CLAUDE.md から対象行を削除しました`);
+      console.log(`✓ Extracted ${selection.selectedLines.length} lines to ${selection.preset.file}`);
+      console.log(`✓ Removed target lines from CLAUDE.md`);
     }
     
     // 5. 自動でeditコマンドを実行
@@ -584,7 +584,7 @@ export async function extract(options: ExtractOptions = {}): Promise<Result<stri
       const { shouldEdit } = await inquirer.prompt({
         type: 'confirm',
         name: 'shouldEdit',
-        message: `${selection.preset.file} をエディタで開きますか？`,
+        message: `Open ${selection.preset.file} in editor?`,
         default: true
       });
       
@@ -596,7 +596,7 @@ export async function extract(options: ExtractOptions = {}): Promise<Result<stri
         });
         
         if (!editResult.success) {
-          console.warn(`エディタでの編集に失敗しました: ${editResult.error.message}`);
+          console.warn(`Failed to edit in editor: ${editResult.error.message}`);
         }
       }
     } else {
@@ -609,11 +609,11 @@ export async function extract(options: ExtractOptions = {}): Promise<Result<stri
           verbose: options.verbose
         });
       } else if (options.verbose) {
-        console.log("テスト環境のため、エディタの自動実行をスキップしました");
+        console.log("Skipped automatic editor execution due to test environment");
       }
     }
     
-    return Ok(`${selection.selectedLines.length}行を${selection.preset.file}に抽出しました`);
+    return Ok(`Extracted ${selection.selectedLines.length} lines to ${selection.preset.file}`);
   } catch (error) {
     return Err(error instanceof Error ? error : new Error(String(error)));
   }

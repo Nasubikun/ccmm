@@ -42,94 +42,94 @@ program
 // sync コマンド
 program
   .command("sync")
-  .description("プリセットを同期してCLAUDE.mdを更新する")
-  .option("-c, --commit <sha>", "特定のコミットハッシュを使用")
-  .option("-v, --verbose", "詳細ログを出力")
-  .option("-y, --yes", "確認プロンプトをスキップ")
-  .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
-  .option("-s, --skip-selection", "プリセット選択プロンプトをスキップして現在の設定を使用")
-  .option("-r, --reselect", "プロンプトなしで強制的にプリセットを再選択")
+  .description("Sync presets and update CLAUDE.md")
+  .option("-c, --commit <sha>", "Use specific commit hash")
+  .option("-v, --verbose", "Output verbose logs")
+  .option("-y, --yes", "Skip confirmation prompts")
+  .option("--dry-run", "Simulate operations without making actual changes")
+  .option("-s, --skip-selection", "Skip preset selection prompt and use current settings")
+  .option("-r, --reselect", "Force preset reselection without prompts")
   .action(async (options: SyncOptions) => {
-    await executeCommand("プリセット同期", sync, options);
+    await executeCommand("Preset sync", sync, options);
   });
 
 // init コマンド
 program
   .command("init")
-  .description("ccmmをグローバルに初期化する")
-  .option("-v, --verbose", "詳細ログを出力")
-  .option("-y, --yes", "確認プロンプトをスキップ")
-  .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
+  .description("Initialize ccmm globally")
+  .option("-v, --verbose", "Output verbose logs")
+  .option("-y, --yes", "Skip confirmation prompts")
+  .option("--dry-run", "Simulate operations without making actual changes")
   .action(async (options: CliOptions) => {
-    await executeCommand("ccmm初期化", init, options);
+    await executeCommand("ccmm initialization", init, options);
   });
 
 // lock コマンド
 program
   .command("lock")
-  .description("プリセットを特定のコミットにロックする")
-  .argument("<sha>", "ロックするコミットハッシュ")
-  .option("-v, --verbose", "詳細ログを出力")
-  .option("-y, --yes", "確認プロンプトをスキップ")
-  .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
+  .description("Lock presets to a specific commit")
+  .argument("<sha>", "Commit hash to lock")
+  .option("-v, --verbose", "Output verbose logs")
+  .option("-y, --yes", "Skip confirmation prompts")
+  .option("--dry-run", "Simulate operations without making actual changes")
   .action(async (sha: string, options: LockOptions) => {
-    await executeCommand("プリセットロック", (opts) => lock(sha, { ...opts, sha }), options);
+    await executeCommand("Preset lock", (opts) => lock(sha, { ...opts, sha }), options);
   });
 
 // unlock コマンド
 program
   .command("unlock")
-  .description("プリセットのロックを解除してHEADに戻す")
-  .option("-v, --verbose", "詳細ログを出力")
-  .option("-y, --yes", "確認プロンプトをスキップ")
-  .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
+  .description("Unlock presets and return to HEAD")
+  .option("-v, --verbose", "Output verbose logs")
+  .option("-y, --yes", "Skip confirmation prompts")
+  .option("--dry-run", "Simulate operations without making actual changes")
   .action(async (options: CliOptions) => {
-    await executeCommand("プリセットアンロック", unlock, options);
+    await executeCommand("Preset unlock", unlock, options);
   });
 
 // edit コマンド
 program
   .command("edit")
-  .description("プリセットファイルを編集する")
-  .argument("[preset]", "編集するプリセット名（未指定時は選択UI表示）")
+  .description("Edit preset files")
+  .argument("[preset]", "Preset name to edit (shows selection UI if not specified)")
   .option("--owner <owner>", "リポジトリオーナーを指定")
   .option("--repo <repo>", "リポジトリ名を指定")
-  .option("-v, --verbose", "詳細ログを出力")
-  .option("-y, --yes", "確認プロンプトをスキップ")
-  .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
+  .option("-v, --verbose", "Output verbose logs")
+  .option("-y, --yes", "Skip confirmation prompts")
+  .option("--dry-run", "Simulate operations without making actual changes")
   .action(async (preset: string | undefined, options: EditOptions) => {
-    await executeCommand("プリセット編集", (opts) => edit(preset || "", opts).then(result => 
-      result.success ? Ok(`プリセット編集が完了しました`) : result
+    await executeCommand("Preset edit", (opts) => edit(preset || "", opts).then(result => 
+      result.success ? Ok(`Preset editing completed`) : result
     ), options);
   });
 
 // extract コマンド
 program
   .command("extract")
-  .description("CLAUDE.mdからプリセットへ変更を抽出する")
+  .description("Extract changes from CLAUDE.md to presets")
   .option("--preset <preset>", "対象プリセットファイル")
-  .option("-v, --verbose", "詳細ログを出力")
-  .option("-y, --yes", "確認プロンプトをスキップ")
-  .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
+  .option("-v, --verbose", "Output verbose logs")
+  .option("-y, --yes", "Skip confirmation prompts")
+  .option("--dry-run", "Simulate operations without making actual changes")
   .action(async (options: ExtractOptions) => {
-    await executeCommand("変更抽出", extract, options);
+    await executeCommand("Change extraction", extract, options);
   });
 
 // push コマンド
 program
   .command("push")
-  .description("プリセットの変更をリモートリポジトリにプッシュする")
-  .argument("[preset]", "プッシュするプリセット名（未指定時は選択UI表示）")
+  .description("Push preset changes to remote repository")
+  .argument("[preset]", "Preset name to push (shows selection UI if not specified)")
   .option("--owner <owner>", "リポジトリオーナーを指定")
   .option("--repo <repo>", "リポジトリ名を指定")
   .option("--title <title>", "プルリクエストのタイトル")
   .option("--body <body>", "プルリクエストの本文")
   .option("--branch <branch>", "ブランチ名を指定")
-  .option("-v, --verbose", "詳細ログを出力")
-  .option("-y, --yes", "確認プロンプトをスキップ")
-  .option("--dry-run", "実際の変更を行わずに動作をシミュレート")
+  .option("-v, --verbose", "Output verbose logs")
+  .option("-y, --yes", "Skip confirmation prompts")
+  .option("--dry-run", "Simulate operations without making actual changes")
   .action(async (preset: string | undefined, options: PushOptions & EditOptions) => {
-    await executeCommand("プリセットプッシュ", (opts) => push(preset || "", opts), options);
+    await executeCommand("Preset push", (opts) => push(preset || "", opts), options);
   });
 
 // グローバルエラーハンドリングを設定

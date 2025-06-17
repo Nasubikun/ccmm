@@ -108,21 +108,21 @@ export const defaultGitHubDependencies: GitHubDependencies = {
  * 環境チェックを実行し、結果を表示する
  */
 async function performEnvironmentChecks(options: CliOptions, github: GitHubDependencies): Promise<EnvironmentCheck> {
-  showInfo("環境チェックを実行しています...");
+  showInfo("Running environment checks...");
 
   const ghCommand = await github.checkGhCommand();
   const githubToken = github.checkGitHubToken();
 
   if (ghCommand) {
-    showSuccess("✓ GitHub CLI (gh) がインストールされています");
+    showSuccess("✓ GitHub CLI (gh) is installed");
   } else {
-    showWarning("⚠ GitHub CLI (gh) がインストールされていません");
+    showWarning("⚠ GitHub CLI (gh) is not installed");
   }
 
   if (githubToken) {
-    showSuccess("✓ GitHub トークンが設定されています");
+    showSuccess("✓ GitHub token is configured");
   } else {
-    showWarning("⚠ GitHub トークン (GITHUB_TOKEN または GITHUB_ACCESS_TOKEN) が設定されていません");
+    showWarning("⚠ GitHub token (GITHUB_TOKEN or GITHUB_ACCESS_TOKEN) is not configured");
   }
 
   let username: string | undefined;
@@ -130,7 +130,7 @@ async function performEnvironmentChecks(options: CliOptions, github: GitHubDepen
     const fetchedUsername = await github.getCurrentGitHubUsername();
     username = fetchedUsername || undefined;
     if (username) {
-      showSuccess(`✓ GitHub ユーザー: ${username}`);
+      showSuccess(`✓ GitHub user: ${username}`);
     }
   }
 
@@ -157,13 +157,13 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
           {
             type: "confirm",
             name: "confirmReinit",
-            message: "ccmmは既に初期化されています。再初期化しますか？",
+            message: "ccmm is already initialized. Do you want to reinitialize?",
             default: false,
           },
         ]);
 
         if (!confirmReinit) {
-          return Ok("初期化をキャンセルしました");
+          return Ok("Initialization cancelled");
         }
       }
     }
@@ -176,19 +176,19 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
     }
 
     if (options.verbose) {
-      console.log(chalk.gray(`ディレクトリを作成しました: ${ccmmDir}`));
-      console.log(chalk.gray(`ディレクトリを作成しました: ${presetsDir}`));
-      console.log(chalk.gray(`ディレクトリを作成しました: ${projectsDir}`));
+      console.log(chalk.gray(`Created directory: ${ccmmDir}`));
+      console.log(chalk.gray(`Created directory: ${presetsDir}`));
+      console.log(chalk.gray(`Created directory: ${projectsDir}`));
     }
 
     // プリセットリポジトリの設定（必須）
     let config: CcmmConfig = {};
     
-    showInfo("プリセットリポジトリを設定しています...");
+    showInfo("Setting up preset repositories...");
     
     // GitHub認証済みでユーザー名が取得できる場合
     if (envCheck.username && envCheck.ghCommand && envCheck.githubToken) {
-      showInfo(`${envCheck.username}/CLAUDE-md リポジトリの存在を確認しています...`);
+      showInfo(`Checking existence of ${envCheck.username}/CLAUDE-md repository...`);
       
       const userRepoExists = await github.checkRepositoryExists(envCheck.username, "CLAUDE-md");
       
@@ -196,7 +196,7 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
         // ユーザーのリポジトリが存在する場合は自動設定
         const userRepo = `github.com/${envCheck.username}/CLAUDE-md`;
         config.defaultPresetRepositories = [userRepo];
-        showSuccess(`✓ あなたのCLAUDE-mdリポジトリを使用します: ${userRepo}`);
+        showSuccess(`✓ Using your CLAUDE-md repository: ${userRepo}`);
         
         // 他のリポジトリも追加するか確認
         if (!options.yes) {
@@ -204,7 +204,7 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
             {
               type: "confirm",
               name: "addMore",
-              message: "他のプリセットリポジトリも追加しますか？（チーム共有リポジトリなど）",
+              message: "Add other preset repositories? (team shared repositories, etc.)",
               default: false,
             },
           ]);
@@ -214,7 +214,7 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
               {
                 type: "input",
                 name: "additionalRepos",
-                message: "追加するリポジトリのURLを入力してください（カンマ区切りで複数可）:",
+                message: "Enter repository URLs to add (comma-separated for multiple):",
                 validate: (input: string) => {
                   if (!input.trim()) {
                     return true; // 空でもOK
@@ -222,7 +222,7 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
                   const repos = input.split(",").map(r => r.trim()).filter(r => r.length > 0);
                   for (const repo of repos) {
                     if (!repo.includes("github.com")) {
-                      return `"${repo}" は有効なGitHubリポジトリURLではありません`;
+                      return `"${repo}" is not a valid GitHub repository URL`;
                     }
                   }
                   return true;
@@ -241,14 +241,14 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
         }
       } else {
         // ユーザーのリポジトリが存在しない場合、作成を提案
-        showWarning(`⚠ ${envCheck.username}/CLAUDE-md リポジトリが見つかりません`);
+        showWarning(`⚠ ${envCheck.username}/CLAUDE-md repository not found`);
         
         if (!options.yes) {
           const { createRepo } = await inquirer.prompt([
             {
               type: "confirm",
               name: "createRepo",
-              message: `あなた専用のCLAUDE-mdリポジトリを作成しますか？\n  プリセット管理には専用リポジトリが必要です。`,
+              message: `Create your dedicated CLAUDE-md repository?\n  A dedicated repository is required for preset management.`,
               default: true,
             },
           ]);
@@ -258,14 +258,14 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
               await github.createRepository("CLAUDE-md", "CLAUDE.md presets");
               const userRepo = `github.com/${envCheck.username}/CLAUDE-md`;
               config.defaultPresetRepositories = [userRepo];
-              showSuccess(`✓ あなた専用のCLAUDE-mdリポジトリを作成しました: ${userRepo}`);
+              showSuccess(`✓ Created your dedicated CLAUDE-md repository: ${userRepo}`);
               
               // 他のリポジトリも追加するか確認
               const { addMore } = await inquirer.prompt([
                 {
                   type: "confirm",
                   name: "addMore",
-                  message: "他のプリセットリポジトリも追加しますか？（チーム共有リポジトリなど）",
+                  message: "Add other preset repositories? (team shared repositories, etc.)",
                   default: false,
                 },
               ]);
@@ -275,7 +275,7 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
                   {
                     type: "input",
                     name: "additionalRepos",
-                    message: "追加するリポジトリのURLを入力してください（カンマ区切りで複数可）:",
+                    message: "Enter repository URLs to add (comma-separated for multiple):",
                     validate: (input: string) => {
                       if (!input.trim()) {
                         return true; // 空でもOK
@@ -283,7 +283,7 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
                       const repos = input.split(",").map(r => r.trim()).filter(r => r.length > 0);
                       for (const repo of repos) {
                         if (!repo.includes("github.com")) {
-                          return `"${repo}" は有効なGitHubリポジトリURLではありません`;
+                          return `"${repo}" is not a valid GitHub repository URL`;
                         }
                       }
                       return true;
@@ -300,19 +300,19 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
                 }
               }
             } catch (error) {
-              return Err(new Error(`リポジトリの作成に失敗しました: ${error}`));
+              return Err(new Error(`Failed to create repository: ${error}`));
             }
           } else {
-            return Err(new Error("プリセットリポジトリが設定されていないため、ccmmを初期化できません"));
+            return Err(new Error("Cannot initialize ccmm without preset repository configuration"));
           }
         } else {
-          return Err(new Error("--yesフラグが指定されましたが、プリセットリポジトリが存在しません。先に手動でリポジトリを作成してください"));
+          return Err(new Error("--yes flag specified but preset repository doesn't exist. Please create repository manually first"));
         }
       }
     } else if (envCheck.username) {
       // GitHub認証なし but usernameは取得できた場合
-      showWarning("GitHub トークンが設定されていませんが、ユーザー名は取得できました");
-      showInfo("認証後にリポジトリアクセスが可能になります。");
+      showWarning("GitHub token is not configured, but username is available");
+      showInfo("Repository access will be available after authentication.");
       
       if (!options.yes) {
         const defaultValue = `github.com/${envCheck.username}/CLAUDE-md`;
@@ -320,14 +320,14 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
           {
             type: "input",
             name: "manualRepo",
-            message: "プリセットリポジトリのURL (例: github.com/yourname/CLAUDE-md):",
+            message: "Preset repository URL (e.g. github.com/yourname/CLAUDE-md):",
             default: defaultValue,
             validate: (input: string) => {
               if (!input.trim()) {
-                return "プリセットリポジトリのURLは必須です";
+                return "Preset repository URL is required";
               }
               if (!input.includes("github.com")) {
-                return "GitHub リポジトリのURLを入力してください";
+                return "Please enter a GitHub repository URL";
               }
               return true;
             },
@@ -348,34 +348,34 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
           }
         }
         
-        showInfo("※ 実際のリポジトリアクセスは認証後に確認されます");
+        showInfo("※ Actual repository access will be verified after authentication");
       } else {
         // --yes フラグの場合はデフォルト値で設定
         const defaultValue = `github.com/${envCheck.username}/CLAUDE-md`;
         config.defaultPresetRepositories = [defaultValue];
-        showInfo(`--yesオプションにより、${defaultValue} をデフォルトリポジトリとして設定しました。`);
-        showInfo("※ 実際のリポジトリアクセスは認証後に確認されます");
+        showInfo(`Set ${defaultValue} as default repository due to --yes option.`);
+        showInfo("※ Actual repository access will be verified after authentication");
       }
     } else {
       // GitHub認証なし & username取得不可の場合
-      showWarning("GitHub認証が利用できません");
+      showWarning("GitHub authentication is not available");
       
       if (!options.yes) {
-        showInfo("認証後にプリセットリポジトリを設定できます。");
-        showInfo("手動でプリセットリポジトリを設定することもできます。");
+        showInfo("You can set up preset repositories after authentication.");
+        showInfo("You can also manually configure preset repositories.");
         
         const { configChoice } = await inquirer.prompt([
           {
             type: "list",
             name: "configChoice",
-            message: "初期化方法を選択してください:",
+            message: "Select initialization method:",
             choices: [
               {
-                name: "基本的な初期化のみ (後でプリセットリポジトリを設定)",
+                name: "Basic initialization only (set preset repositories later)",
                 value: "basic"
               },
               {
-                name: "プリセットリポジトリを手動で指定",
+                name: "Manually specify preset repository",
                 value: "manual"
               }
             ],
@@ -388,13 +388,13 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
             {
               type: "input",
               name: "manualRepo",
-              message: "プリセットリポジトリのURL (例: github.com/yourname/CLAUDE-md):",
+              message: "Preset repository URL (e.g. github.com/yourname/CLAUDE-md):",
               validate: (input: string) => {
                 if (!input.trim()) {
-                  return "プリセットリポジトリのURLは必須です";
+                  return "Preset repository URL is required";
                 }
                 if (!input.includes("github.com")) {
-                  return "GitHub リポジトリのURLを入力してください";
+                  return "Please enter a GitHub repository URL";
                 }
                 return true;
               },
@@ -415,18 +415,18 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
             }
           }
           
-          showInfo("※ 実際のリポジトリアクセスは認証後に確認されます");
+          showInfo("※ Actual repository access will be verified after authentication");
         } else {
           // 基本初期化のみ - 空の設定
           config.defaultPresetRepositories = [];
-          showInfo("基本的な初期化が完了しました。");
-          showInfo("後で 'ccmm config' コマンドでプリセットリポジトリを設定できます。");
+          showInfo("Basic initialization completed.");
+          showInfo("You can set preset repositories later with 'ccmm config' command.");
         }
       } else {
         // --yes フラグの場合は基本初期化のみ
         config.defaultPresetRepositories = [];
-        showInfo("--yesオプションにより基本初期化を実行しました。");
-        showInfo("後で認証設定後にプリセットリポジトリを設定してください。");
+        showInfo("Basic initialization performed due to --yes option.");
+        showInfo("Please set preset repositories after authentication setup.");
       }
     }
 
@@ -439,10 +439,10 @@ export async function init(options: CliOptions, github: GitHubDependencies = pro
     }
 
     if (options.verbose) {
-      console.log(chalk.gray(`設定ファイルを作成しました: ${configPath}`));
+      console.log(chalk.gray(`Created configuration file: ${configPath}`));
     }
 
-    return Ok("ccmmの初期化が完了しました");
+    return Ok("ccmm initialization completed");
   } catch (error) {
     return Err(error instanceof Error ? error : new Error(String(error)));
   }

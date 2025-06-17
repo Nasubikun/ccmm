@@ -187,7 +187,7 @@ describe('edit機能', () => {
       
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toContain('異常終了');
+        expect(result.error.message).toContain('exited abnormally');
         expect(result.error.message).toContain('exit code: 1');
       }
     });
@@ -254,7 +254,7 @@ describe('edit機能', () => {
       
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toContain('プリセット名を指定してください');
+        expect(result.error.message).toContain('Please specify preset name');
       }
     });
 
@@ -266,7 +266,7 @@ describe('edit機能', () => {
       
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toContain('--owner オプション');
+        expect(result.error.message).toContain('--owner option');
       }
     });
 

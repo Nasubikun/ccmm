@@ -423,28 +423,28 @@ describe('unlock機能', () => {
     it('Gitリポジトリでない場合、エラーを返す', async () => {
       mockValidateAndSetupProject.mockResolvedValue({
         success: false,
-        error: new Error('現在のディレクトリはGitリポジトリではありません')
+        error: new Error('Current directory is not a Git repository')
       });
 
       const result = await unlock();
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toBe('現在のディレクトリはGitリポジトリではありません');
+        expect(result.error.message).toBe('Current directory is not a Git repository');
       }
     });
 
     it('origin URL取得に失敗した場合、エラーを返す', async () => {
       mockValidateAndSetupProject.mockResolvedValue({
         success: false,
-        error: new Error('originURLを取得できませんでした: origin not found')
+        error: new Error('Failed to get origin URL: origin not found')
       });
 
       const result = await unlock();
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toContain('originURLを取得できませんでした');
+        expect(result.error.message).toContain('Failed to get origin URL');
       }
     });
 
@@ -490,7 +490,7 @@ describe('unlock機能', () => {
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toBe('プリセットはロックされていません');
+        expect(result.error.message).toBe('Presets are not locked');
       }
     });
 

@@ -104,11 +104,11 @@ async function tryGetFilesWithGh(owner: string, repo: string): Promise<Result<Pr
     if (stderr) {
       // GitHub CLIのエラーを詳細に処理
       if (stderr.includes("HTTP 404")) {
-        return Err(new Error(`リポジトリ ${owner}/${repo} が見つからないか、アクセス権限がありません。'gh auth login' で認証を確認してください。`));
+        return Err(new Error(`Repository ${owner}/${repo} not found or access denied. Please check authentication with 'gh auth login'.`));
       } else if (stderr.includes("HTTP 401") || stderr.includes("authentication")) {
-        return Err(new Error(`GitHub認証に失敗しました。'gh auth login' で再度認証してください。`));
+        return Err(new Error(`GitHub authentication failed. Please re-authenticate with 'gh auth login'.`));
       } else if (stderr.includes("HTTP 403")) {
-        return Err(new Error(`リポジトリ ${owner}/${repo} へのアクセス権限がありません。`));
+        return Err(new Error(`No access permission to repository ${owner}/${repo}.`));
       } else {
         return Err(new Error(`GitHub CLI failed: ${stderr}`));
       }
@@ -164,14 +164,14 @@ async function tryGetFilesWithApi(owner: string, repo: string): Promise<Result<P
       if (response.message === "Not Found") {
         const token = process.env.GITHUB_TOKEN;
         if (!token) {
-          return Err(new Error(`リポジトリ ${owner}/${repo} にアクセスできません。プライベートリポジトリの場合は GITHUB_TOKEN 環境変数を設定してください。`));
+          return Err(new Error(`Cannot access repository ${owner}/${repo}. For private repositories, please set GITHUB_TOKEN environment variable.`));
         } else {
-          return Err(new Error(`リポジトリ ${owner}/${repo} が見つからないか、アクセス権限がありません。リポジトリ名とアクセス権限を確認してください。`));
+          return Err(new Error(`Repository ${owner}/${repo} not found or access denied. Please check repository name and access permissions.`));
         }
       } else if (response.message === "Bad credentials") {
-        return Err(new Error(`GitHub認証に失敗しました。GITHUB_TOKEN 環境変数の値を確認してください。`));
+        return Err(new Error(`GitHub authentication failed. Please check GITHUB_TOKEN environment variable.`));
       } else if (response.message.includes("API rate limit exceeded")) {
-        return Err(new Error(`GitHub API のレート制限に達しました。しばらく待ってから再試行するか、GITHUB_TOKEN を設定してください。`));
+        return Err(new Error(`GitHub API rate limit reached. Please wait and retry later, or set GITHUB_TOKEN.`));
       } else {
         return Err(new Error(`GitHub API error: ${response.message}`));
       }

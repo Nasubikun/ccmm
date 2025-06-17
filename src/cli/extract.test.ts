@@ -304,7 +304,7 @@ index abc123..def456 100644
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toContain("CLAUDE.md の読み取りに失敗しました");
+        expect(result.error.message).toContain("Failed to read CLAUDE.md");
       }
     });
   });
@@ -408,7 +408,7 @@ index abc123..def456 100644
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toContain("CLAUDE.md の読み取りに失敗しました");
+        expect(result.error.message).toContain("Failed to read CLAUDE.md");
       }
     });
   });

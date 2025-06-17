@@ -83,7 +83,7 @@ describe('push機能', () => {
       
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toContain('プリセットファイルのパスが正しくありません');
+        expect(result.error.message).toContain('Invalid preset file path');
       }
     });
 
@@ -95,7 +95,7 @@ describe('push機能', () => {
       
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toContain('パス形式が無効です');
+        expect(result.error.message).toContain('Invalid preset file path format');
       }
     });
   });
@@ -341,7 +341,7 @@ describe('push機能', () => {
       
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toContain('プリセット名を指定してください');
+        expect(result.error.message).toContain('Please specify preset name');
       }
     });
 
@@ -353,7 +353,7 @@ describe('push機能', () => {
       
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toContain('--owner オプション');
+        expect(result.error.message).toContain('--owner option');
       }
     });
 
@@ -367,7 +367,7 @@ describe('push機能', () => {
       
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toContain('プリセットファイルが見つかりません');
+        expect(result.error.message).toContain('Preset file not found');
       }
     });
 
@@ -384,7 +384,7 @@ describe('push機能', () => {
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toContain('プリセットファイルが見つかりません');
+        expect(result.error.message).toContain('Preset file not found');
       }
     });
 
@@ -398,7 +398,7 @@ describe('push機能', () => {
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toBe('プリセット名を指定してください');
+        expect(result.error.message).toBe('Please specify preset name');
       }
     });
     
@@ -410,7 +410,7 @@ describe('push機能', () => {
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toBe('--owner オプションでリポジトリオーナーを指定してください');
+        expect(result.error.message).toBe('Please specify repository owner with --owner option');
       }
     });
   });

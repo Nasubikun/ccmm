@@ -137,6 +137,46 @@ export async function fileExists(filePath: string): Promise<boolean> {
 }
 
 /**
+ * 絶対パスをチルダ（~）記法に縮約する
+ * ホームディレクトリで始まる絶対パスを~/で始まるパスに変換する
+ * 
+ * @param path - 縮約するパス
+ * @returns 縮約されたパス
+ * 
+ * @example
+ * contractTilde("/Users/username/.ccmm/config")
+ * // => "~/.ccmm/config" (macOS/Linux)
+ * contractTilde("/other/path/file")
+ * // => "/other/path/file" (ホームディレクトリ以外の場合は変更なし)
+ */
+export function contractTilde(path: string): string {
+  if (!path || typeof path !== 'string') {
+    return ''; // undefined や空文字列、非文字列の場合は空文字列を返す
+  }
+  
+  const homeDir = homedir();
+  
+  // パスを正規化して比較
+  const normalizedPath = resolve(path);
+  const normalizedHome = resolve(homeDir);
+  
+  // ホームディレクトリで始まる場合は~/に変換
+  if (normalizedPath.startsWith(normalizedHome)) {
+    const relativePath = normalizedPath.slice(normalizedHome.length);
+    // ディレクトリセパレータを確認
+    if (relativePath === '') {
+      return '~';
+    }
+    if (relativePath.startsWith('/') || relativePath.startsWith('\\')) {
+      return '~' + relativePath;
+    }
+    return '~/' + relativePath;
+  }
+  
+  return path;
+}
+
+/**
  * ファイルを安全に読み取る（存在チェック付き）
  * 
  * @param filePath - 読み取るファイルのパス

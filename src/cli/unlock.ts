@@ -173,7 +173,7 @@ export async function unlock(options: CliOptions = {}): Promise<Result<string, E
     
     // 5. ロックされていない場合は何もしない
     if (!lockState.isLocked) {
-      return Err(new Error("プリセットはロックされていません"));
+      return Err(new Error("Presets are not locked"));
     }
     
     // 6. プリセット設定を復元
@@ -195,7 +195,7 @@ export async function unlock(options: CliOptions = {}): Promise<Result<string, E
       return Err(updateResult.error);
     }
     
-    return Ok("プリセットのロックが解除されました");
+    return Ok("Preset lock has been removed");
   } catch (error) {
     return Err(error instanceof Error ? error : new Error(String(error)));
   }

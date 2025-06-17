@@ -249,7 +249,7 @@ export async function lock(sha: string, options: LockOptions = { sha }): Promise
     
     // 5. プリセットが設定されていない場合はエラー
     if (currentPresets.length === 0) {
-      return Err(new Error("ロックするプリセットが見つかりません。まず sync コマンドを実行してください"));
+      return Err(new Error("No presets found to lock. Please run sync command first"));
     }
     
     // 6. ベンダーディレクトリ情報を生成
@@ -278,7 +278,7 @@ export async function lock(sha: string, options: LockOptions = { sha }): Promise
       return Err(updateResult.error);
     }
     
-    return Ok(`プリセットが${sha}でロックされました`);
+    return Ok(`Presets locked at ${sha}`);
   } catch (error) {
     return Err(error instanceof Error ? error : new Error(String(error)));
   }

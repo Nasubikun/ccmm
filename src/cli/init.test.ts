@@ -262,7 +262,7 @@ describe("init", () => {
       
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toContain("--yesフラグが指定されましたが、プリセットリポジトリが存在しません");
+        expect(result.error.message).toContain("--yes flag specified but preset repository doesn't exist");
       }
     });
 
@@ -295,7 +295,7 @@ describe("init", () => {
       
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toContain("リポジトリの作成に失敗しました");
+        expect(result.error.message).toContain("Failed to create repository");
       }
     });
 
@@ -310,7 +310,7 @@ describe("init", () => {
       
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toContain("プリセットリポジトリが設定されていないため、ccmmを初期化できません");
+        expect(result.error.message).toContain("Cannot initialize ccmm without preset repository configuration");
       }
     });
   });

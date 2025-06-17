@@ -387,7 +387,7 @@ describe('lock機能', () => {
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toBe('ロックするプリセットが見つかりません。まず sync コマンドを実行してください');
+        expect(result.error.message).toBe('No presets found to lock. Please run sync command first');
       }
       expect(mockValidateAndSetupProject).toHaveBeenCalledWith('/Users/jo/dev/ccmm', sha);
     });
@@ -397,14 +397,14 @@ describe('lock機能', () => {
 
       mockValidateAndSetupProject.mockResolvedValue({
         success: false,
-        error: new Error('現在のディレクトリはGitリポジトリではありません')
+        error: new Error('Current directory is not a Git repository')
       });
 
       const result = await lock(sha);
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toBe('現在のディレクトリはGitリポジトリではありません');
+        expect(result.error.message).toBe('Current directory is not a Git repository');
       }
     });
 
@@ -456,7 +456,7 @@ describe('lock機能', () => {
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.message).toBe('ロックするプリセットが見つかりません。まず sync コマンドを実行してください');
+        expect(result.error.message).toBe('No presets found to lock. Please run sync command first');
       }
     });
   });

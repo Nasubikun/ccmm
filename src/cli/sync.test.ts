@@ -195,6 +195,8 @@ describe('sync機能', () => {
     beforeEach(async () => {
       const fs = await import('../core/fs.js');
       vi.mocked(fs.writeFile).mockImplementation(mockWriteFile);
+      // contractTildeをモック
+      vi.mocked(fs.contractTilde).mockImplementation((path: string) => path);
     });
 
     it('プリセットの内容を正しくマージする', async () => {
@@ -277,6 +279,8 @@ describe('sync機能', () => {
       const fs = await import('../core/fs.js');
       vi.mocked(fs.readFile).mockImplementation(mockReadFile);
       vi.mocked(fs.writeFile).mockImplementation(mockWriteFile);
+      // contractTildeをモック
+      vi.mocked(fs.contractTilde).mockImplementation((path: string) => path);
     });
 
     it('新規CLAUDE.mdを作成する', async () => {

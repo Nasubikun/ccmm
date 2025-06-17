@@ -73,7 +73,7 @@ export async function executeCommand<T extends CommonCliOptions>(
 ): Promise<never> {
   try {
     if (options.verbose) {
-      showInfo(`${commandName}を開始しています...`);
+      showInfo(`Starting ${commandName}...`);
     }
     
     const result = await commandFn(options);
@@ -82,17 +82,17 @@ export async function executeCommand<T extends CommonCliOptions>(
       if (result.data.trim()) {
         showSuccess(result.data);
       } else {
-        showSuccess(`${commandName}が完了しました`);
+        showSuccess(`${commandName} completed`);
       }
     } else {
-      showError(`${commandName}処理に失敗しました: ${result.error.message}`, result.error);
+      showError(`${commandName} processing failed: ${result.error.message}`, result.error);
       process.exit(1);
     }
     
     // 正常終了
     process.exit(0);
   } catch (error) {
-    showError("予期しないエラーが発生しました", error instanceof Error ? error : new Error(String(error)));
+    showError("An unexpected error occurred", error instanceof Error ? error : new Error(String(error)));
     process.exit(1);
   }
 }
@@ -130,12 +130,12 @@ export function dryRunLog(options: CommonCliOptions, message: string): boolean {
 export function setupProcessHandlers(): void {
   // グローバルエラーハンドリング
   process.on('uncaughtException', (error) => {
-    showError("予期しないエラーが発生しました", error);
+    showError("An unexpected error occurred", error);
     process.exit(1);
   });
 
   process.on('unhandledRejection', (reason) => {
-    showError("未処理のPromise拒否が発生しました", reason instanceof Error ? reason : new Error(String(reason)));
+    showError("Unhandled Promise rejection occurred", reason instanceof Error ? reason : new Error(String(reason)));
     process.exit(1);
   });
 }

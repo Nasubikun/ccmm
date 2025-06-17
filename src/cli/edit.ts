@@ -143,7 +143,7 @@ export async function selectPresetForEdit(presets: EditablePreset[]): Promise<Re
     const answer = await inquirer.prompt([{
       type: 'list',
       name: 'selection',
-      message: '編集するプリセットを選択してください:',
+      message: 'Select preset to edit:',
       choices
     }]);
     
@@ -169,13 +169,13 @@ export async function inputNewPresetInfo(
       {
         type: 'input',
         name: 'preset',
-        message: 'プリセット名を入力してください (例: react.md):',
+        message: 'Enter preset name (e.g., react.md):',
         validate: (input: string) => {
           if (!input || input.trim() === '') {
-            return 'プリセット名を入力してください';
+            return 'Please enter preset name';
           }
           if (!input.endsWith('.md')) {
-            return 'プリセット名は .md で終わる必要があります';
+            return 'Preset name must end with .md';
           }
           return true;
         }
@@ -183,11 +183,11 @@ export async function inputNewPresetInfo(
       {
         type: 'input',
         name: 'owner',
-        message: 'リポジトリオーナーを入力してください:',
+        message: 'Enter repository owner:',
         default: defaultOwner || undefined,
         validate: (input: string) => {
           if (!input || input.trim() === '') {
-            return 'リポジトリオーナーを入力してください';
+            return 'Please enter repository owner';
           }
           return true;
         }
@@ -195,11 +195,11 @@ export async function inputNewPresetInfo(
       {
         type: 'input',
         name: 'repo',
-        message: 'リポジトリ名を入力してください:',
+        message: 'Enter repository name:',
         default: defaultRepo || 'CLAUDE-md',
         validate: (input: string) => {
           if (!input || input.trim() === '') {
-            return 'リポジトリ名を入力してください';
+            return 'Please enter repository name';
           }
           return true;
         }
@@ -231,7 +231,7 @@ export async function openInEditor(filePath: string): Promise<Result<void, Error
       if (code === 0) {
         resolve(Ok(undefined));
       } else {
-        resolve(Err(new Error(`エディタが異常終了しました (exit code: ${code})`)));
+        resolve(Err(new Error(`Editor exited abnormally (exit code: ${code})`)));
       }
     });
     
@@ -262,33 +262,33 @@ export async function edit(preset: string, options: EditOptions = {}): Promise<R
         const setupResult = await validateAndSetupProject();
         if (!setupResult.success) {
           // テスト環境や基本的なケースでは、シンプルなエラーメッセージを返す
-          return Err(new Error("プリセット名を指定してください"));
+          return Err(new Error("Please specify preset name"));
         }
       } catch {
-        return Err(new Error("プリセット名を指定してください"));
+        return Err(new Error("Please specify preset name"));
       }
       
       // 編集可能なプリセット一覧を取得
       const presetsResult = await getEditablePresets(options);
       if (!presetsResult.success) {
         // プリセット取得に失敗した場合も、わかりやすいエラーメッセージを返す
-        return Err(new Error("プリセット名を指定してください"));
+        return Err(new Error("Please specify preset name"));
       }
       
       const presets = presetsResult.data;
       
       // プリセットが存在しない場合は新規作成を促す
       if (presets.length === 0) {
-        console.log("プリセットが設定されていません。\n");
+        console.log("No presets are configured.\n");
         const createNew = await inquirer.prompt([{
           type: 'confirm',
           name: 'create',
-          message: '新しいプリセットを作成しますか？',
+          message: 'Would you like to create a new preset?',
           default: true
         }]);
         
         if (!createNew.create) {
-          return Err(new Error("'ccmm sync' でプリセットを設定してください。"));
+          return Err(new Error("Please set presets with 'ccmm sync'."));
         }
         
         // 新規作成フロー
@@ -343,15 +343,15 @@ export async function edit(preset: string, options: EditOptions = {}): Promise<R
             // マッチするプリセットがない場合、デフォルトを推測
             const defaults = guessDefaultOwnerRepo(presetsResult.data);
             if (defaults.owner) {
-              console.log(`既存のプリセットから推測: owner=${defaults.owner}, repo=${defaults.repo || 'CLAUDE-md'}`);
+              console.log(`Guessed from existing presets: owner=${defaults.owner}, repo=${defaults.repo || 'CLAUDE-md'}`);
               selectedOwner = defaults.owner;
               selectedRepo = defaults.repo || 'CLAUDE-md';
             } else {
-              return Err(new Error("--owner オプションでリポジトリオーナーを指定してください"));
+              return Err(new Error("Please specify repository owner with --owner option"));
             }
           }
         } else {
-          return Err(new Error("--owner オプションでリポジトリオーナーを指定してください"));
+          return Err(new Error("Please specify repository owner with --owner option"));
         }
       } else {
         selectedOwner = options.owner;
@@ -367,24 +367,24 @@ export async function edit(preset: string, options: EditOptions = {}): Promise<R
     );
     
     if (options.verbose) {
-      console.log(`プリセットファイル: ${presetPath}`);
+      console.log(`Preset file: ${presetPath}`);
     }
     
     // ドライランモードの場合は実際の操作をスキップ
     if (options.dryRun) {
-      console.log(`[DRY RUN] ${presetPath} をエディタで開く予定です`);
+      console.log(`[DRY RUN] Planning to open ${presetPath} in editor`);
       return Ok(undefined);
     }
     
     // ファイルの存在確認と必要に応じた作成
     const ensureResult = await ensurePresetFile(presetPath);
     if (!ensureResult.success) {
-      return Err(new Error(`プリセットファイルの準備に失敗しました: ${ensureResult.error.message}`));
+      return Err(new Error(`Failed to prepare preset file: ${ensureResult.error.message}`));
     }
     
     if (process.env.NODE_ENV === 'test') {
       if (options.verbose) {
-        console.log(`テスト環境のため、エディタの実行をスキップしました: ${presetPath}`);
+        console.log(`Skipped editor execution due to test environment: ${presetPath}`);
       }
       return Ok(undefined);
     }
@@ -392,10 +392,10 @@ export async function edit(preset: string, options: EditOptions = {}): Promise<R
     // エディタでファイルを開く
     const editResult = await openInEditor(presetPath);
     if (!editResult.success) {
-      return Err(new Error(`エディタでの編集に失敗しました: ${editResult.error.message}`));
+      return Err(new Error(`Failed to edit in editor: ${editResult.error.message}`));
     }
     
-    console.log(`✓ プリセット '${selectedPreset}' の編集が完了しました`);
+    console.log(`✓ Editing of preset '${selectedPreset}' completed`);
     
     return Ok(undefined);
   } catch (error) {
