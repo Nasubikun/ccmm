@@ -2,6 +2,8 @@
 
 [日本語](README.md) | **English**
 
+![ccmm demo](ccmm.gif)
+
 **ccmm (Claude Code Memory Manager)** is a CLI tool for reusing and sharing Anthropic **Claude Code** configuration files `CLAUDE.md` across multiple projects.
 
 ---

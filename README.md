@@ -2,6 +2,8 @@
 
 **日本語** | [English](README.en.md)
 
+![ccmm demo](ccmm.gif)
+
 **ccmm (Claude Code Memory Manager)** は、Anthropic **Claude Code** の設定ファイル `CLAUDE.md` を  
 複数プロジェクト間で再利用／共有するための CLI ツールです。
 
