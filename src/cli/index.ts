@@ -15,6 +15,7 @@ import { edit } from "./edit.js";
 import { extract } from "./extract.js";
 import { push } from "./push.js";
 import { init } from "./init.js";
+import { makeConfigCommand } from "./config.js";
 import { 
   showError, 
   showSuccess, 
@@ -131,6 +132,9 @@ program
   .action(async (preset: string | undefined, options: PushOptions & EditOptions) => {
     await executeCommand("Preset push", (opts) => push(preset || "", opts), options);
   });
+
+// config コマンド
+program.addCommand(makeConfigCommand());
 
 // グローバルエラーハンドリングを設定
 setupProcessHandlers();
