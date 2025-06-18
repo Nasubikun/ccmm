@@ -89,7 +89,7 @@ describe("基本ワークフロー統合テスト", () => {
     );
 
     // 3. ccmm sync（プリセット適用）
-    const syncResult = execCLI("sync", ctx.projectDir, {
+    const syncResult = execCLI("sync --skip-selection", ctx.projectDir, {
       HOME: ctx.homeDir,
       NODE_ENV: "test"
     });
@@ -183,7 +183,7 @@ describe("基本ワークフロー統合テスト", () => {
     );
 
     // 1回目のsync
-    const sync1Result = execCLI("sync", ctx.projectDir, { 
+    const sync1Result = execCLI("sync --skip-selection", ctx.projectDir, { 
       HOME: ctx.homeDir,
       NODE_ENV: "test"
     });
@@ -198,7 +198,7 @@ describe("基本ワークフロー統合テスト", () => {
     const importLine1 = await getClaudeMdImportLine(ctx.projectDir);
     
     // 2回目のsync
-    const sync2Result = execCLI("sync", ctx.projectDir, { 
+    const sync2Result = execCLI("sync --skip-selection", ctx.projectDir, { 
       HOME: ctx.homeDir,
       NODE_ENV: "test"
     });

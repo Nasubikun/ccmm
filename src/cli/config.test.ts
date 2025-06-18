@@ -4,6 +4,7 @@ import * as path from 'path'
 import * as os from 'os'
 import { makeConfigCommand } from './config.js'
 import { ensureDir, expandTilde } from '../core/fs.js'
+import { clearConfigCache } from '../core/config.js'
 import inquirer from 'inquirer'
 
 // Mock modules
@@ -20,6 +21,7 @@ describe('config command', () => {
   let tempDir: string
   let configPath: string
   let originalConsoleLog: typeof console.log
+  let originalConsoleError: typeof console.error
   let logOutput: string[]
 
   beforeEach(async () => {
@@ -30,7 +32,11 @@ describe('config command', () => {
     // Capture console output
     logOutput = []
     originalConsoleLog = console.log
+    originalConsoleError = console.error
     console.log = (...args: any[]) => {
+      logOutput.push(args.map(String).join(' '))
+    }
+    console.error = (...args: any[]) => {
       logOutput.push(args.map(String).join(' '))
     }
 
@@ -39,11 +45,15 @@ describe('config command', () => {
     vi.mocked(expandTilde).mockImplementation((p: string) => 
       p.replace(/^~/, tempDir)
     )
+
+    // Clear config cache
+    clearConfigCache()
   })
 
   afterEach(async () => {
-    // Restore console.log
+    // Restore console.log and console.error
     console.log = originalConsoleLog
+    console.error = originalConsoleError
 
     // Clean up temp directory
     await fs.rm(tempDir, { recursive: true, force: true })
@@ -89,6 +99,7 @@ describe('config command', () => {
       const listCmd = cmd.commands.find((c) => c.name() === 'list')
       await listCmd?.parseAsync([], { from: 'user' })
 
+      console.error('Debug output:', logOutput)
       expect(logOutput).toContain('Configured preset repositories:')
       expect(logOutput).toContain('  1. github.com/org1/repo1')
       expect(logOutput).toContain('  2. github.com/org2/repo2')
@@ -163,6 +174,7 @@ describe('config command', () => {
         from: 'user',
       })
 
+      console.error('Debug duplicate output:', logOutput)
       expect(logOutput).toContain(
         'Repository "github.com/existing/repo" is already in the list.'
       )
@@ -171,6 +183,11 @@ describe('config command', () => {
 
   describe('config remove', () => {
     it('should remove repository when confirmed', async () => {
+      // Mock process.exit to prevent test from exiting
+      const mockExit = vi.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('Process exited')
+      })
+
       // Mock confirmation
       vi.mocked(inquirer.prompt).mockResolvedValueOnce({
         confirm: true,
@@ -192,20 +209,33 @@ describe('config command', () => {
 
       const cmd = makeConfigCommand()
       const removeCmd = cmd.commands.find((c) => c.name() === 'remove')
-      await removeCmd?.parseAsync(['github.com/org1/repo1'], {
-        from: 'user',
-      })
+
+      try {
+        await removeCmd?.parseAsync(['github.com/org1/repo1'], {
+          from: 'user',
+        })
+      } catch (e) {
+        // Expected due to process.exit mock
+      }
 
       // Check config was updated
       const config = JSON.parse(await fs.readFile(path.join(tempDir, '.ccmm', 'config.json'), 'utf-8'))
+      console.error('Debug remove output:', logOutput)
       expect(config.defaultPresetRepositories).not.toContain(
         'github.com/org1/repo1'
       )
       expect(config.defaultPresetRepositories).toContain('github.com/org2/repo2')
       expect(logOutput).toContain('✓ Removed repository: github.com/org1/repo1')
+      
+      mockExit.mockRestore()
     })
 
     it('should cancel removal when not confirmed', async () => {
+      // Mock process.exit to prevent test from exiting
+      const mockExit = vi.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('Process exited')
+      })
+
       // Mock declining confirmation
       vi.mocked(inquirer.prompt).mockResolvedValueOnce({
         confirm: false,
@@ -224,17 +254,29 @@ describe('config command', () => {
 
       const cmd = makeConfigCommand()
       const removeCmd = cmd.commands.find((c) => c.name() === 'remove')
-      await removeCmd?.parseAsync(['github.com/org1/repo1'], {
-        from: 'user',
-      })
+
+      try {
+        await removeCmd?.parseAsync(['github.com/org1/repo1'], {
+          from: 'user',
+        })
+      } catch (e) {
+        // Expected due to process.exit mock
+      }
 
       // Check config was not changed
       const config = JSON.parse(await fs.readFile(path.join(tempDir, '.ccmm', 'config.json'), 'utf-8'))
       expect(config.defaultPresetRepositories).toContain('github.com/org1/repo1')
       expect(logOutput).toContain('Removal cancelled.')
+      
+      mockExit.mockRestore()
     })
 
     it('should prompt for selection if no repository provided', async () => {
+      // Mock process.exit to prevent test from exiting
+      const mockExit = vi.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('Process exited')
+      })
+
       // Mock selection and confirmation
       vi.mocked(inquirer.prompt)
         .mockResolvedValueOnce({
@@ -260,7 +302,12 @@ describe('config command', () => {
 
       const cmd = makeConfigCommand()
       const removeCmd = cmd.commands.find((c) => c.name() === 'remove')
-      await removeCmd?.parseAsync([], { from: 'user' })
+
+      try {
+        await removeCmd?.parseAsync([], { from: 'user' })
+      } catch (e) {
+        // Expected due to process.exit mock
+      }
 
       // Check config was updated
       const config = JSON.parse(await fs.readFile(path.join(tempDir, '.ccmm', 'config.json'), 'utf-8'))
@@ -268,6 +315,77 @@ describe('config command', () => {
         'github.com/org2/repo2'
       )
       expect(logOutput).toContain('✓ Removed repository: github.com/org2/repo2')
+      
+      mockExit.mockRestore()
+    })
+
+    it('should handle non-existent repository error', async () => {
+      // Create config with repositories
+      const ccmmDir = path.join(tempDir, '.ccmm')
+      await fs.mkdir(ccmmDir, { recursive: true })
+      await fs.writeFile(
+        path.join(ccmmDir, 'config.json'),
+        JSON.stringify({
+          version: '1.0.0',
+          defaultPresetRepositories: ['github.com/org2/repo2'],
+        })
+      )
+
+      const cmd = makeConfigCommand()
+      const removeCmd = cmd.commands.find((c) => c.name() === 'remove')
+
+      // Mock process.exit to prevent test from exiting
+      const mockExit = vi.spyOn(process, 'exit').mockImplementation((() => {
+        throw new Error('process.exit unexpectedly called')
+      }) as any)
+
+      try {
+        await removeCmd?.parseAsync(['github.com/org1/repo1'], {
+          from: 'user',
+        })
+      } catch (e: any) {
+        expect(e.message).toContain('process.exit unexpectedly called')
+      }
+
+      expect(mockExit).toHaveBeenCalledWith(1)
+      expect(logOutput).toContain('✗ Error: Repository "github.com/org1/repo1" not found in the list.')
+      mockExit.mockRestore()
+    })
+
+    it('should handle prompting with undefined repository', async () => {
+      // Mock selection returning undefined (edge case)
+      vi.mocked(inquirer.prompt).mockResolvedValueOnce({
+        repository: undefined,
+      })
+
+      // Create config with repositories
+      const ccmmDir = path.join(tempDir, '.ccmm')
+      await fs.mkdir(ccmmDir, { recursive: true })
+      await fs.writeFile(
+        path.join(ccmmDir, 'config.json'),
+        JSON.stringify({
+          version: '1.0.0',
+          defaultPresetRepositories: ['github.com/org1/repo1'],
+        })
+      )
+
+      const cmd = makeConfigCommand()
+      const removeCmd = cmd.commands.find((c) => c.name() === 'remove')
+
+      // Mock process.exit to prevent test from exiting
+      const mockExit = vi.spyOn(process, 'exit').mockImplementation((() => {
+        throw new Error('process.exit unexpectedly called')
+      }) as any)
+
+      try {
+        await removeCmd?.parseAsync([], { from: 'user' })
+      } catch (e: any) {
+        expect(e.message).toContain('process.exit unexpectedly called')
+      }
+
+      expect(mockExit).toHaveBeenCalledWith(1)
+      expect(logOutput).toContain('✗ Error: Repository "undefined" not found in the list.')
+      mockExit.mockRestore()
     })
   })
 

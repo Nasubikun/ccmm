@@ -14,6 +14,7 @@ import {
   getCurrentPresets,
   lock 
 } from './lock.js';
+import { expandTilde } from '../core/fs.js';
 import type { PresetInfo, ProjectPaths, VendorInfo } from '../core/types/index.js';
 
 // モックの設定
@@ -92,9 +93,9 @@ describe('lock機能', () => {
 
       expect(result.success).toBe(true);
       expect(mockEnsureDir).toHaveBeenCalledWith(vendorInfo.path);
-      expect(mockFileExists).toHaveBeenCalledWith(presets[0]!.localPath);
+      expect(mockFileExists).toHaveBeenCalledWith(expandTilde(presets[0]!.localPath));
       expect(mockCopyFile).toHaveBeenCalledWith(
-        presets[0]!.localPath,
+        expandTilde(presets[0]!.localPath),
         join(vendorInfo.path, 'github.com_myorg_CLAUDE-md_react.md')
       );
       

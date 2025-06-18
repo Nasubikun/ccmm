@@ -125,7 +125,7 @@ describe("インタラクティブコマンドテスト", () => {
     
     // lockコマンドが認識され、適切なエラーメッセージが出力されることを確認
     // 完全な実装がない場合でも、コマンドが解析されることを期待
-    expect(lockResult.stderr).toContain("ロック処理に失敗しました");
+    expect(lockResult.stderr).toContain("Preset lock processing failed");
   });
 });
 

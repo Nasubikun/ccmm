@@ -53,6 +53,71 @@ describe("Sync機能デバッグ", () => {
     console.log("- defaultPresetRepo:", config.defaultPresetRepositories);
     console.log("- defaultPresets:", config.defaultPresets);
 
+    // プリセットディレクトリの内容を事前に確認
+    try {
+      const presetFiles = await require("node:fs/promises").readdir(ctx.presetDir);
+      console.log("🔍 プリセットディレクトリのファイル:", presetFiles);
+    } catch (error) {
+      console.log("🔍 プリセットディレクトリ読み取りエラー:", error);
+    }
+
+    // scanPresetFilesの動作をテスト
+    const { scanPresetFiles } = await import("../../src/git/repo-scan.js");
+    const scanResult = await scanPresetFiles(`file://${ctx.presetDir}`);
+    console.log("🔍 scanPresetFiles結果:", scanResult);
+
+    // fetchPresetsの動作をテスト
+    const { fetchPresets } = await import("../../src/cli/sync.js");
+    const testPointers = [
+      {
+        host: 'localhost',
+        owner: `file://${ctx.presetDir}`,
+        repo: 'local',
+        file: 'react.md',
+        commit: 'HEAD'
+      }
+    ];
+    console.log("🔍 テスト用プリセットポインタ:", testPointers);
+    
+    const testPresetDir = path.join(ctx.homeDir, ".ccmm", "presets");
+    const fetchResult = await fetchPresets(testPointers, testPresetDir);
+    console.log("🔍 fetchPresets結果:", fetchResult);
+
+    // contractTildeの動作をテスト
+    if (fetchResult.success && fetchResult.data.length > 0) {
+      const { contractTilde } = await import("../../src/core/fs.js");
+      const { homedir } = require("node:os");
+      const { resolve } = require("node:path");
+      
+      const localPath = fetchResult.data[0].localPath;
+      const contractedPath = contractTilde(localPath);
+      
+      console.log("🔍 contractTilde変換:");
+      console.log("  入力:", localPath);
+      console.log("  出力:", contractedPath);
+      console.log("  ctx.homeDir:", ctx.homeDir);
+      console.log("  process.env.HOME:", process.env.HOME);
+      console.log("  os.homedir():", homedir());
+      console.log("  resolve(ctx.homeDir):", resolve(ctx.homeDir));
+      console.log("  resolve(localPath):", resolve(localPath));
+      console.log("  localPathがhomeDirで始まる?:", localPath.startsWith(ctx.homeDir));
+      console.log("  localPathがresolved homeDirで始まる?:", resolve(localPath).startsWith(resolve(ctx.homeDir)));
+      
+      // 手動でcontractTildeの処理をテスト
+      const normalizedPath = resolve(localPath);
+      const normalizedHome = resolve(ctx.homeDir);
+      console.log("  normalizedPath:", normalizedPath);
+      console.log("  normalizedHome:", normalizedHome);
+      console.log("  normalizedPathがnormalizedHomeで始まる?:", normalizedPath.startsWith(normalizedHome));
+      
+      if (normalizedPath.startsWith(normalizedHome)) {
+        const relativePath = normalizedPath.slice(normalizedHome.length);
+        console.log("  relativePath:", relativePath);
+        const expectedContracted = '~' + relativePath;
+        console.log("  期待されるcontracted:", expectedContracted);
+      }
+    }
+
     // syncを実行
     const syncResult = execCLI("sync --yes", ctx.projectDir, { HOME: ctx.homeDir });
     console.log("🔍 Sync結果:", syncResult.exitCode);
@@ -84,6 +149,31 @@ describe("Sync機能デバッグ", () => {
       
       if (content.trim() === "") {
         console.log("❌ merged-preset-HEAD.mdが空です！これがlockが失敗する原因です");
+        
+        // syncコマンドの実行でprocess.env.HOMEが正しく設定されているかを確認
+        console.log("🔍 syncコマンド実行時の環境変数:");
+        console.log("  syncコマンドに渡されたHOME:", ctx.homeDir);
+        
+        // generateMergedを手動で呼び出して、正しい環境変数で動作するかテスト
+        const testPresets = fetchResult.success ? fetchResult.data : [];
+        if (testPresets.length > 0) {
+          // HOMEを一時的に変更
+          const originalHome = process.env.HOME;
+          process.env.HOME = ctx.homeDir;
+          
+          const { generateMerged } = await import("../../src/cli/sync.js");
+          const testMergedPath = path.join(ctx.homeDir, "test-merged.md");
+          const generateResult = await generateMerged(testPresets, testMergedPath, "HEAD");
+          
+          console.log("🔍 手動generateMerged結果:", generateResult);
+          if (generateResult.success && await fileExists(testMergedPath)) {
+            const testContent = await readFile(testMergedPath);
+            console.log("🔍 手動生成されたmerged内容:", testContent);
+          }
+          
+          // HOMEを元に戻す
+          process.env.HOME = originalHome;
+        }
       } else {
         console.log("✅ merged-preset-HEAD.mdに内容があります");
         

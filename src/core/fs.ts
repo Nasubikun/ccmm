@@ -101,10 +101,13 @@ export async function ensureDir(dirPath: string): Promise<Result<void, Error>> {
  */
 export function expandTilde(path: string): string {
   if (path.startsWith("~/")) {
-    return join(homedir(), path.slice(2));
+    // テスト環境対応: process.env.HOMEを優先
+    const homeDir = process.env.HOME || homedir();
+    return join(homeDir, path.slice(2));
   }
   if (path === "~") {
-    return homedir();
+    // テスト環境対応: process.env.HOMEを優先
+    return process.env.HOME || homedir();
   }
   return path;
 }

@@ -93,6 +93,15 @@ describe("ロック・アンロック機能テスト", () => {
   });
 
   it("手動でプリセットを設定してlockテストを実行", async () => {
+    // 0. configファイルを設定
+    const configPath = path.join(ctx.homeDir, ".ccmm", "config.json");
+    const config = {
+      defaultPresetRepositories: [`file://${ctx.presetDir}`],
+      defaultPresets: ["react.md", "typescript.md"]
+    };
+    await require("node:fs/promises").mkdir(path.dirname(configPath), { recursive: true });
+    await require("node:fs/promises").writeFile(configPath, JSON.stringify(config, null, 2));
+    
     // 1. syncを実行
     const syncResult = execCLI("sync --yes", ctx.projectDir, { HOME: ctx.homeDir });
     expect(syncResult.exitCode).toBe(0);

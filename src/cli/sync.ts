@@ -105,9 +105,16 @@ export async function fetchPresets(pointers: PresetPointer[], homePresetDir: str
     }
     
     // 各プリセットのローカルパスを生成
-    const localPaths = pointers.map(pointer => 
-      join(homePresetDir, pointer.host, pointer.owner, pointer.repo, pointer.file)
-    );
+    const localPaths = pointers.map(pointer => {
+      if (pointer.host === 'localhost' && pointer.owner.startsWith('file://')) {
+        // file:// URLの場合は、簡略化されたパスを使用
+        const cleanOwner = pointer.owner.replace(/^file:\/\//, '').replace(/[:/]/g, '_');
+        return join(homePresetDir, pointer.host, cleanOwner, pointer.file);
+      } else {
+        // 通常のGitHub URLの場合
+        return join(homePresetDir, pointer.host, pointer.owner, pointer.repo, pointer.file);
+      }
+    });
     
     // 親ディレクトリを作成
     for (const localPath of localPaths) {
@@ -162,7 +169,16 @@ export async function generateMerged(presets: PresetInfo[], mergedPresetPath: st
     // プリセットの@import行を生成（lock機能との整合性のため、絶対パスを~/形式に変換）
     const importLines = presets
       .filter(preset => preset.localPath) // ローカルパスがあるもののみ
-      .map(preset => `@${contractTilde(preset.localPath)}`);
+      .map(preset => {
+        const localPath = preset.localPath;
+        // 環境変数HOMEを使ったパス変換（テスト環境対応）
+        const homeDir = process.env.HOME || require('node:os').homedir();
+        if (localPath.startsWith(homeDir)) {
+          const relativePath = localPath.slice(homeDir.length);
+          return `@~${relativePath}`;
+        }
+        return `@${contractTilde(localPath)}`;
+      });
     
     // @import行のリストをファイルに書き込み
     const mergedContent = importLines.join('\n');
@@ -537,16 +553,27 @@ async function runInteractivePresetSelection(
     const presetPointers: PresetPointer[] = [];
     
     for (const preset of selectedPresets) {
-      // GitHub URLをパース
-      const urlParts = preset.repo.replace(/^https?:\/\//, '').split('/');
-      if (urlParts.length >= 3 && urlParts[0] === 'github.com') {
+      if (preset.repo.startsWith('file://')) {
+        // file:// URLの場合
         presetPointers.push({
-          host: urlParts[0]!,
-          owner: urlParts[1]!,
-          repo: urlParts[2]!,
+          host: 'localhost',
+          owner: preset.repo, // file:// URL全体をownerとして格納
+          repo: 'local',
           file: preset.file,
           commit: commit
         });
+      } else {
+        // GitHub URLをパース
+        const urlParts = preset.repo.replace(/^https?:\/\//, '').split('/');
+        if (urlParts.length >= 3 && urlParts[0] === 'github.com') {
+          presetPointers.push({
+            host: urlParts[0]!,
+            owner: urlParts[1]!,
+            repo: urlParts[2]!,
+            file: preset.file,
+            commit: commit
+          });
+        }
       }
     }
     

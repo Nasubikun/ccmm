@@ -245,18 +245,17 @@ describe("GitHub API E2Eテスト", () => {
         HOME: ctx.homeDir,
       });
       
-      // syncは成功するが、プリセットが空になることを確認
-      expect(syncResult.exitCode).toBe(0);
+      // 存在しないリポジトリに対してsyncは失敗することを確認
+      expect(syncResult.exitCode).toBe(1);
+      expect(syncResult.stderr).toContain("Authentication required");
       
-      // merged-preset-HEAD.mdの内容を確認
+      // merged-preset-HEAD.mdは作成されないことを確認
       const projectSlug = require("../../dist/core/slug.js").makeSlug("https://github.com/nonexistent-org-99999/nonexistent-repo-99999.git");
       const mergedPresetPath = path.join(ctx.homeDir, ".ccmm", "projects", projectSlug, "merged-preset-HEAD.md");
       
-      if (await fileExists(mergedPresetPath)) {
-        const mergedContent = await readFile(mergedPresetPath);
-        // 空のファイルまたは存在しないファイルへの参照のみが含まれていることを確認
-        expect(mergedContent.trim()).toBe("");
-      }
+      // syncが失敗したため、merged-preset-HEAD.mdは作成されないはず
+      const mergedFileExists = await fileExists(mergedPresetPath);
+      expect(mergedFileExists).toBe(false);
     }, 30000);
     
     it("認証が必要な操作で適切なエラーハンドリングを行う", async () => {

@@ -8,7 +8,7 @@
 
 import { join, dirname, relative } from "node:path";
 import { copyFile } from "node:fs/promises";
-import { readFile, writeFile, ensureDir, fileExists } from "../core/fs.js";
+import { readFile, writeFile, ensureDir, fileExists, expandTilde } from "../core/fs.js";
 import { makeSlug } from "../core/slug.js";
 import { getOriginUrl, isGitRepository } from "../git/index.js";
 import { validateAndSetupProject } from "../core/project.js";
@@ -72,14 +72,15 @@ export async function copyPresetsToVendor(
       const vendorFileName = `${pointer.host}_${pointer.owner}_${pointer.repo}_${pointer.file}`;
       const vendorFilePath = join(vendorInfo.path, vendorFileName);
       
-      // ソースファイルが存在するかチェック
-      const exists = await fileExists(preset.localPath);
+      // ソースファイルが存在するかチェック（チルダ展開対応）
+      const expandedLocalPath = expandTilde(preset.localPath);
+      const exists = await fileExists(expandedLocalPath);
       if (!exists) {
         return Err(new Error(`Source preset file not found: ${preset.localPath}`));
       }
       
       // ファイルをコピー
-      await copyFile(preset.localPath, vendorFilePath);
+      await copyFile(expandedLocalPath, vendorFilePath);
       vendorFiles.push(vendorFileName);
     }
     
@@ -171,7 +172,7 @@ export async function getCurrentPresets(
     }
     
     // merged-preset ファイルからプリセット情報を読み取り
-    const mergedPresetPath = content.importInfo.path;
+    const mergedPresetPath = expandTilde(content.importInfo.path);
     
     // merged-preset ファイルが存在することを確認
     const mergedExists = await fileExists(mergedPresetPath);
@@ -196,9 +197,10 @@ export async function getCurrentPresets(
       const presetPath = trimmedLine.substring(1); // @を除去
       
       // プリセットファイルが存在するか確認
-      const presetExists = await fileExists(presetPath);
+      const expandedPresetPath = expandTilde(presetPath);
+      const presetExists = await fileExists(expandedPresetPath);
       if (presetExists) {
-        const presetContent = await readFile(presetPath);
+        const presetContent = await readFile(expandedPresetPath);
         if (presetContent.success) {
           // 簡略化されたPresetPointer（実際のプリセット操作に必要な最小限の情報）
           const pointer: PresetPointer = {

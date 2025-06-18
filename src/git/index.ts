@@ -8,6 +8,8 @@
 import { simpleGit, type SimpleGit } from "simple-git";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
+import { copyFile } from "node:fs/promises";
+import { join } from "node:path";
 import { Result, Ok, Err } from "../lib/result.js";
 import type { PresetPointer, GitOperationResult } from "../core/types/index.js";
 
@@ -42,6 +44,11 @@ export async function shallowFetch(
 ): Promise<Result<GitOperationResult, Error>> {
   try {
     const { host, owner, repo, file, commit } = pointer;
+    
+    // file:// URLの場合はローカルファイルコピー
+    if (host === "localhost" || repo.startsWith("file://")) {
+      return await tryFetchFromLocal(pointer, localPath);
+    }
     
     // まずghコマンドを使って認証済みで取得を試行
     const ghResult = await tryFetchWithGh(pointer, localPath);
@@ -130,6 +137,45 @@ async function tryFetchWithCurl(
         localPath,
         commit,
         output: stdout,
+      },
+    });
+  } catch (error) {
+    return Err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+/**
+ * ローカルファイルシステムからファイルを取得する（file:// URL用）
+ */
+async function tryFetchFromLocal(
+  pointer: PresetPointer,
+  localPath: string
+): Promise<Result<GitOperationResult, Error>> {
+  try {
+    const { owner, repo, file } = pointer;
+    
+    // file:// URLからローカルパスを構築
+    // ownerがfile://から始まる場合は、そこからパスを抽出
+    let sourcePath: string;
+    if (owner.startsWith("file://")) {
+      sourcePath = join(owner.replace("file://", ""), file);
+    } else if (repo.startsWith("file://")) {
+      sourcePath = join(repo.replace("file://", ""), file);
+    } else {
+      // ownerがディレクトリパスの場合
+      sourcePath = join(owner, file);
+    }
+    
+    // ファイルをコピー
+    await copyFile(sourcePath, localPath);
+    
+    return Ok({
+      success: true,
+      data: {
+        method: "local",
+        localPath,
+        sourcePath,
+        output: `Copied from ${sourcePath}`,
       },
     });
   } catch (error) {
