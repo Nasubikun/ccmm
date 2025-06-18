@@ -63,7 +63,33 @@ ccmm init
 
 ---
 
-## 2. Fetch and sync presets
+## 2. Preset repository management
+
+### 2-1. Adding and removing repositories
+
+```bash
+ccmm config add myorg/CLAUDE-md     # Add a new preset repository
+ccmm config remove myorg/CLAUDE-md  # Remove a preset repository
+```
+
+### 2-2. View configured repositories
+
+```bash
+ccmm config list                    # Display list of configured preset repositories
+```
+
+### 2-3. Default repository settings
+
+```bash
+ccmm config set-default myorg/CLAUDE-md    # Set default repository
+ccmm config get-default                     # Display current default repository
+```
+
+When a default repository is set, it will be automatically selected during `ccmm init`.
+
+---
+
+## 3. Fetch and sync presets
 
 ```bash
 ccmm sync
@@ -75,9 +101,9 @@ ccmm sync
 
 ---
 
-## 3. Editing presets and upstream reflection
+## 4. Editing presets and upstream reflection
 
-### 3-1. Direct preset editing
+### 4-1. Direct preset editing
 
 ```bash
 ccmm edit react.md     # Open preset file in editor
@@ -86,14 +112,14 @@ ccmm edit              # Run without arguments to show selection UI
 
 You can directly edit existing preset files in an editor. Running without arguments allows interactive preset file selection.
 
-### 3-2. Send changes to upstream repository
+### 4-2. Send changes to upstream repository
 
 ```bash
 ccmm push react.md     # Send changes as GitHub PR
 ccmm push              # Run without arguments to show selection UI
 ```
 
-### 3-3. Extract changes from CLAUDE.md
+### 4-3. Extract changes from CLAUDE.md
 
 ```bash
 git add CLAUDE.md      # Stage additions
@@ -104,7 +130,7 @@ You can move content written directly in CLAUDE.md to appropriate preset files.
 
 ---
 
-## 4. Version locking
+## 5. Version locking
 
 ```bash
 ccmm lock <commitSHA>
@@ -125,7 +151,7 @@ ccmm unlock            # Return to HEAD version
 
 ---
 
-## 5. Command list
+## 6. Command list
 
 | Command | Description |
 |---------|-------------|
@@ -136,16 +162,17 @@ ccmm unlock            # Return to HEAD version
 | `ccmm push [preset]` | Send preset changes via GitHub PR (selection UI without arguments) |
 | `ccmm lock <sha>` | Lock preset to specific commit |
 | `ccmm unlock` | Return to HEAD tracking mode |
+| `ccmm config` | Preset repository configuration and management |
 
 ---
 
-## 6. Check if it's working correctly
+## 7. Check if it's working correctly
 
 Launch Claude Code and run the `/memory` command to view the tree of files being loaded.
 
 ---
 
-## 7. Uninstall
+## 8. Uninstall
 
 ```bash
 npm rm -g ccmm
